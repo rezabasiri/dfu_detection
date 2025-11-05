@@ -1,0 +1,122 @@
+Getting started
+Visit claude.ai/code
+Connect your GitHub account
+Install the Claude GitHub app in your repositories
+Select your default environment
+Submit your coding task
+Review changes and create a pull request in GitHub
+​
+How it works
+When you start a task on Claude Code on the web:
+Repository cloning: Your repository is cloned to an Anthropic-managed virtual machine
+Environment setup: Claude prepares a secure cloud environment with your code
+Network configuration: Internet access is configured based on your settings
+Task execution: Claude analyzes code, makes changes, runs tests, and checks its work
+Completion: You’re notified when finished and can create a PR with the changes
+Results: Changes are pushed to a branch, ready for pull request creation
+​
+Moving tasks between web and terminal
+​
+From web to terminal
+After starting a task on the web:
+Click the “Open in CLI” button
+Paste and run the command in your terminal in a checkout of the repo
+Any existing local changes will be stashed, and the remote session will be loaded
+Continue working locally
+​
+Cloud environment
+​
+Default image
+We build and maintain a universal image with common toolchains and language ecosystems pre-installed. This image includes:
+Popular programming languages and runtimes
+Common build tools and package managers
+Testing frameworks and linters
+​
+Checking available tools
+To see what’s pre-installed in your environment, ask Claude Code to run:
+
+Copy
+check-tools
+This command displays:
+Programming languages and their versions
+Available package managers
+Installed development tools
+​
+Language-specific setups
+The universal image includes pre-configured environments for:
+Python: Python 3.x with pip, poetry, and common scientific libraries
+Node.js: Latest LTS versions with npm, yarn, and pnpm
+Java: OpenJDK with Maven and Gradle
+Go: Latest stable version with module support
+Rust: Rust toolchain with cargo
+C++: GCC and Clang compilers
+​
+Environment configuration
+When you start a session in Claude Code on the web, here’s what happens under the hood:
+Environment preparation: We clone your repository and run any configured Claude hooks for initialization. The repo will be cloned with the default branch on your GitHub repo. If you would like to check out a specific branch, you can specify that in the prompt.
+Network configuration: We configure internet access for the agent. Internet access is limited by default, but you can configure the environment to have no internet or full internet access based on your needs.
+Claude Code execution: Claude Code runs to complete your task, writing code, running tests, and checking its work. You can guide and steer Claude throughout the session via the web interface. Claude respects context you’ve defined in your CLAUDE.md.
+Outcome: When Claude completes its work, it will push the branch to remote. You will be able to create a PR for the branch.
+Claude operates entirely through the terminal and CLI tools available in the environment. It uses the pre-installed tools in the universal image and any additional tools you install through hooks or dependency management.
+To add a new environment: Select the current environment to open the environment selector, and then select “Add environment”. This will open a dialog where you can specify the environment name, network access level, and any environment variables you want to set.
+To update an existing environment: Select the current environment, to the right of the environment name, and select the settings button. This will open a dialog where you can update the environment name, network access, and environment variables.
+Environment variables must be specified as key-value pairs, in .env format. For example:
+
+Copy
+API_KEY=your_api_key
+DEBUG=true
+​
+Dependency management
+Configure automatic dependency installation using SessionStart hooks. This can be configured in your repository’s .claude/settings.json file:
+
+Copy
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/scripts/install_pkgs.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+Create the corresponding script at scripts/install_pkgs.sh:
+
+Copy
+#!/bin/bash
+npm install
+pip install -r requirements.txt
+exit 0
+Make it executable: chmod +x scripts/install_pkgs.sh
+​
+Local vs remote execution
+By default, all hooks execute both locally and in remote (web) environments. To run a hook only in one environment, check the CLAUDE_CODE_REMOTE environment variable in your hook script.
+
+Copy
+#!/bin/bash
+
+# Example: Only run in remote environments
+if [ "$CLAUDE_CODE_REMOTE" != "true" ]; then
+  exit 0
+fi
+
+npm install
+pip install -r requirements.txt
+​
+Persisting environment variables
+SessionStart hooks can persist environment variables for subsequent bash commands by writing to the file specified in the CLAUDE_ENV_FILE environment variable. For details, see SessionStart hooks in the hooks reference.
+
+Limitations
+Repository authentication: You can only move sessions from web to local when you are authenticated to the same account
+Platform restrictions: Claude Code on the web only works with code hosted in GitHub. GitLab and other non-GitHub repositories cannot be used with cloud sessions
+​
+Best practices
+Use Claude Code hooks: Configure sessionStart hooks to automate environment setup and dependency installation.
+Document requirements: Clearly specify dependencies and commands in your CLAUDE.md file. If you have an AGENTS.md file, you can source it in your CLAUDE.md using @AGENTS.md to maintain a single source of truth.
+
+

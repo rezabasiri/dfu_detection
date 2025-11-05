@@ -1,0 +1,208 @@
+=================================================================
+    DFU DETECTION - QUICK START GUIDE
+=================================================================
+
+PROJECT STATUS: Ready to Train! ✓
+- Data preprocessing: COMPLETE (2000 images processed)
+- Environment setup: COMPLETE (PyTorch + CUDA installed)
+- Scripts created: COMPLETE (train, evaluate, inference)
+
+=================================================================
+TRAINING THE MODEL (Start Here!)
+=================================================================
+
+1. Open terminal in WSL
+
+2. Navigate and activate environment:
+   cd ~/projects/dfu_detection
+   source dfu_detection/bin/activate
+
+3. Go to scripts directory:
+   cd scripts
+
+4. (OPTIONAL) Add healthy feet images to improve accuracy:
+   python add_healthy_feet.py
+
+   This processes images from HealthyFeet/ folder to reduce false positives.
+
+5. (OPTIONAL BUT RECOMMENDED) Create LMDB databases for 3-5x faster training:
+   python create_lmdb.py
+
+   This converts your dataset to LMDB format (takes ~5-10 minutes).
+   Training will automatically use LMDB if available!
+
+   Why LMDB?
+   - Much faster data loading (especially on clusters)
+   - Better GPU utilization
+   - No code changes needed - auto-detected
+
+6. Start training (IMPROVED VERSION RECOMMENDED):
+
+   OPTION A (RECOMMENDED): Improved training script
+   python train_improved.py
+
+   Features:
+   - Resume training automatically (continues from checkpoints!)
+   - Early stopping (patience=10)
+   - Validation loss tracking
+   - Detailed logging to timestamped file
+   - Saves best model based on validation loss
+   - Auto-detects and uses LMDB for faster loading
+
+   OPTION B: Original training script
+   python train_efficientdet.py
+
+   This will:
+   - Load 1600 training images
+   - Train for 50 epochs (~2-3 hours)
+   - Save best model to ../checkpoints/best_model.pth
+   - Use your NVIDIA Titan XP 12GB GPU
+
+=================================================================
+MONITORING TRAINING
+=================================================================
+
+OPTION A: View training log (if using train_improved.py)
+   tail -f ../checkpoints/training_log_*.txt
+
+   This shows detailed training progress including losses and best model saves.
+
+OPTION B: Monitor GPU usage
+   Open a NEW terminal and run:
+   watch -n 1 nvidia-smi
+
+   This shows GPU usage in real-time.
+
+=================================================================
+AFTER TRAINING COMPLETES
+=================================================================
+
+1. Evaluate the model:
+   python evaluate.py
+
+   Results saved to: ../results/evaluation_results.json
+
+2. Test on new images (IMPROVED VERSION RECOMMENDED):
+
+   OPTION A (RECOMMENDED): Improved inference script
+   python inference_improved.py --image /path/to/image.jpg --confidence 0.5
+
+   Features:
+   - Shows confidence percentages
+   - Displays bounding box pixel areas
+   - Limits to 5 images by default (--max-images flag)
+   - Saves JSON summary
+
+   Or on a folder:
+   python inference_improved.py --image /path/to/folder/ --max-images 5
+
+   OPTION B: Original inference script
+   python inference.py --image /path/to/image.jpg
+
+   Results with bounding boxes: ../results/predictions/
+
+=================================================================
+IMPORTANT FILES
+=================================================================
+
+Training Scripts:
+  ~/projects/dfu_detection/scripts/train_improved.py (RECOMMENDED - auto-resume + LMDB)
+  ~/projects/dfu_detection/scripts/train_efficientdet.py (Original)
+  ~/projects/dfu_detection/scripts/add_healthy_feet.py
+  ~/projects/dfu_detection/scripts/create_lmdb.py (NEW - creates fast LMDB databases)
+
+Inference Scripts:
+  ~/projects/dfu_detection/scripts/inference_improved.py (RECOMMENDED)
+  ~/projects/dfu_detection/scripts/inference.py (Original)
+
+Testing Scripts:
+  ~/projects/dfu_detection/scripts/test_lmdb.py (NEW - test LMDB setup)
+  ~/projects/dfu_detection/scripts/test_resume_training.py (NEW - check resume status)
+
+Checkpoints:
+  ~/projects/dfu_detection/checkpoints/best_model.pth (auto-resume from this)
+  ~/projects/dfu_detection/checkpoints/resume_training.pth (manual resume point)
+  ~/projects/dfu_detection/checkpoints/checkpoint_epoch_N.pth (periodic saves)
+  ~/projects/dfu_detection/checkpoints/training_log_*.txt (detailed logs)
+
+Data:
+  ~/projects/dfu_detection/data/train.csv  (1600 images)
+  ~/projects/dfu_detection/data/val.csv    (200 images)
+  ~/projects/dfu_detection/data/test.csv   (200 images)
+  ~/projects/dfu_detection/data/train.lmdb (LMDB format - created by create_lmdb.py)
+  ~/projects/dfu_detection/data/val.lmdb   (LMDB format - created by create_lmdb.py)
+  ~/projects/dfu_detection/data/test.lmdb  (LMDB format - created by create_lmdb.py)
+
+Original Images:
+  /mnt/c/Users/90rez/OneDrive - University of Toronto/PhDUofT/SideProjects/DFU_Detection_Asem/DFUC2022_train_images
+
+Documentation:
+  ~/projects/dfu_detection/IMPROVEMENTS_SUMMARY.md (detailed improvement docs)
+
+=================================================================
+CUSTOMIZING TRAINING
+=================================================================
+
+Edit train_efficientdet.py (line 295) to change:
+  - num_epochs: 50 → 100 (train longer)
+  - batch_size: 8 → 4 (if GPU memory error)
+  - backbone: "efficientnet_b0" → "efficientnet_b3" (better accuracy)
+
+=================================================================
+TROUBLESHOOTING
+=================================================================
+
+GPU Memory Error:
+  → Reduce batch_size to 4 in train_efficientdet.py
+
+Training Too Slow:
+  → Create LMDB databases for 3-5x speedup: python create_lmdb.py
+  → Check nvidia-smi shows GPU usage
+  → Verify CUDA: python -c "import torch; print(torch.cuda.is_available())"
+
+Import Errors:
+  → Make sure environment is activated: source dfu_detection/bin/activate
+  → Install lmdb: pip install lmdb
+
+LMDB Issues:
+  → Test setup: python test_lmdb.py
+  → Recreate databases: rm -rf ../data/*.lmdb && python create_lmdb.py
+
+Resume Training:
+  → Check resume status: python test_resume_training.py
+  → Resume from specific epoch: cp checkpoint_epoch_N.pth resume_training.pth
+  → Start fresh: mv ../checkpoints/best_model.pth ../checkpoints/backup.pth
+
+=================================================================
+NEXT STEPS
+=================================================================
+
+✓ Data preprocessed (DONE)
+→ (Optional) Add healthy feet: python add_healthy_feet.py
+→ (Optional but recommended) Create LMDB: python create_lmdb.py
+→ Start training: python train_improved.py (RECOMMENDED - auto-uses LMDB)
+→ Wait ~2-3 hours for training to complete (or ~1 hour with LMDB!)
+→ Monitor: tail -f ../checkpoints/training_log_*.txt
+→ Evaluate: python evaluate.py
+→ Test predictions: python inference_improved.py --image /path/to/image.jpg
+
+=================================================================
+NEW IMPROVEMENTS
+=================================================================
+
+✅ train_improved.py - Enhanced training with early stopping & logging
+✅ add_healthy_feet.py - Process healthy feet as negative samples
+✅ inference_improved.py - Show confidence % and bbox pixel areas
+✅ create_lmdb.py - Convert dataset to LMDB for 3-5x faster training
+✅ DFUDatasetLMDB - Auto-detects and uses LMDB if available
+✅ Resume training - Auto-resumes from checkpoints (NEW!)
+✅ test_resume_training.py - Check which checkpoint will be used (NEW!)
+
+See IMPROVEMENTS_SUMMARY.md and README.md for full details!
+
+=================================================================
+
+Ready to begin training!
+Recommended: python train_improved.py
+
+Good luck!

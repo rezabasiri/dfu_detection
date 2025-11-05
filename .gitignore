@@ -1,0 +1,249 @@
+# ============================================================
+# DFU Detection Project - .gitignore
+# ============================================================
+# Excludes large data files, checkpoints, logs, and caches
+# ============================================================
+
+# ============================================================
+# DATA FILES (LARGE - DO NOT COMMIT)
+# ============================================================
+# LMDB databases
+data/
+*.lmdb
+*.lmdb-lock
+
+# Image datasets
+DFUC2022_train_images/
+HealthyFeet/
+images/
+dataset/
+
+# CSV files with paths (keep small metadata files, exclude large ones)
+# Uncomment if CSVs are generated and large:
+# *.csv
+
+# ============================================================
+# MODEL CHECKPOINTS & WEIGHTS (LARGE - DO NOT COMMIT)
+# ============================================================
+checkpoints/
+checkpoints_*/
+*.pth
+*.pt
+*.ckpt
+*.h5
+*.pb
+*.onnx
+best_model.pth
+resume_training.pth
+
+# ============================================================
+# TRAINING LOGS & OUTPUTS
+# ============================================================
+logs/
+runs/
+tensorboard/
+training_log_*.txt
+*.log
+
+# Training history
+training_history.json
+history.json
+
+# Verification outputs
+lmdb_verification_samples/
+verification_samples/
+
+# ============================================================
+# PYTHON
+# ============================================================
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+dfu_detection/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# pyenv
+.python-version
+
+# Environments
+.env
+.venv
+
+# ============================================================
+# PYTORCH & DEEP LEARNING
+# ============================================================
+# PyTorch saved models
+*.pth.tar
+
+# TensorBoard
+events.out.tfevents.*
+
+# Weights & Biases
+wandb/
+
+# MLflow
+mlruns/
+
+# ============================================================
+# IDE & EDITORS
+# ============================================================
+# VSCode
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iml
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# ============================================================
+# OPERATING SYSTEM
+# ============================================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+.directory
+.Trash-*
+
+# ============================================================
+# TEMPORARY FILES
+# ============================================================
+*.tmp
+*.temp
+*.bak
+*.backup
+*~
+
+# ============================================================
+# CLUSTER-SPECIFIC (Vast.ai)
+# ============================================================
+# SSH keys (if accidentally placed in project)
+*.pem
+*.key
+id_rsa*
+
+# ============================================================
+# DOCUMENTATION ARTIFACTS
+# ============================================================
+# Keep markdown files, but exclude generated HTML/PDF
+*.html
+*.pdf
+# Exception: Keep important PDFs (uncomment if needed)
+# !paper.pdf
+# !documentation.pdf
+
+# ============================================================
+# MISC
+# ============================================================
+# Compressed files
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# Large media files (videos, etc.)
+*.mp4
+*.avi
+*.mov
+
+# ============================================================
+# KEEP THESE FILES (Negative patterns)
+# ============================================================
+# Keep small example/demo files
+!example_image.jpg
+!demo_image.png
+
+# Keep documentation
+!README.md
+!CLAUDE.md
+!*.md
+
+# Keep requirements and config
+!requirements.txt
+!setup.py
+!pyproject.toml
+!*.yaml
+!*.yml
+!*.json
+
+# Keep scripts
+!scripts/
+scripts/__pycache__/

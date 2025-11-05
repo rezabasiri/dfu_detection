@@ -1,0 +1,535 @@
+[
+  {
+    "image": "patient_746587_2024-08-13.jpg",
+    "num_detections": 0,
+    "detections": []
+  },
+  {
+    "image": "patient_825921_2024-09-25.jpg",
+    "num_detections": 0,
+    "detections": []
+  },
+  {
+    "image": "patient_076296_2025-09-30.jpg",
+    "num_detections": 1,
+    "detections": [
+      {
+        "confidence": 0.8016835451126099,
+        "bbox": [
+          770.572265625,
+          1099.7529296875,
+          893.5198974609375,
+          1231.0882568359375
+        ],
+        "area_pixels": 16147
+      }
+    ]
+  },
+  {
+    "image": "patient_677433_2025-08-13-1.jpg",
+    "num_detections": 1,
+    "detections": [
+      {
+        "confidence": 0.8806172013282776,
+        "bbox": [
+          488.4183349609375,
+          750.4095458984375,
+          895.0040283203125,
+          1109.4752197265625
+        ],
+        "area_pixels": 145990
+      }
+    ]
+  },
+  {
+    "image": "patient_191228_2024-12-24.jpg",
+    "num_detections": 1,
+    "detections": [
+      {
+        "confidence": 0.9900097250938416,
+        "bbox": [
+          510.61944580078125,
+          1012.1289672851562,
+          638.9281616210938,
+          1140.3084716796875
+        ],
+        "area_pixels": 16446
+      }
+    ]
+  },
+  {
+    "image": "patient_249912_2025-02-26.jpg",
+    "num_detections": 1,
+    "detections": [
+      {
+        "confidence": 0.9823811650276184,
+        "bbox": [
+          525.7681884765625,
+          792.6101684570312,
+          743.6128540039062,
+          1100.8529052734375
+        ],
+        "area_pixels": 67149
+      }
+    ]
+  },
+  {
+    "image": "patient_907333_2025-07-07.jpg",
+    "num_detections": 0,
+    "detections": []
+  },
+  {
+    "image": "patient_998425_2023-12-28.jpg",
+    "num_detections": 0,
+    "detections": []
+  },
+  {
+    "image": "patient_350987_2023-11-08-1.jpg",
+    "num_detections": 0,
+    "detections": []
+  },
+  {
+    "image": "patient_215728_2025-05-06-3.jpg",
+    "num_detections": 0,
+    "detections": []
+  },
+  {
+    "image": "patient_283310_2025-04-16.jpg",
+    "num_detections": 1,
+    "detections": [
+      {
+        "confidence": 0.9711512327194214,
+        "bbox": [
+          509.1120910644531,
+          667.327880859375,
+          761.1278076171875,
+          924.8135986328125
+        ],
+        "area_pixels": 64890
+      }
+    ]
+  },
+  {
+    "image": "patient_295911_2024-09-25.jpg",
+    "num_detections": 0,
+    "detections": []
+  },
+  {
+    "image": "patient_629471_2025-06-18.jpg",
+    "num_detections": 1,
+    "detections": [
+      {
+        "confidence": 0.9952023029327393,
+        "bbox": [
+          633.2672119140625,
+          748.0900268554688,
+          758.9990844726562,
+          898.6051025390625
+        ],
+        "area_pixels": 18924
+      }
+    ]
+  },
+  {
+    "image": "patient_383348_2024-11-26.jpg",
+    "num_detections": 0,
+    "detections": []
+  },
+  {
+    "image": "patient_100049_2024-04-24.jpg",
+    "num_detections": 0,
+    "detections": []
+  },
+  {
+    "image": "patient_283310_2025-02-04-1.jpg",
+    "num_detections": 0,
+    "detections": []
+  },
+  {
+    "image": "patient_447689_2024-07-30.jpg",
+    "num_detections": 1,
+    "detections": [
+      {
+        "confidence": 0.9995869994163513,
+        "bbox": [
+          550.7882080078125,
+          883.5026245117188,
+          884.949462890625,
+          1226.2862548828125
+        ],
+        "area_pixels": 114545
+      }
+    ]
+  },
+  {
+    "image": "patient_088281_2024-03-12-1.jpg",
+    "num_detections": 1,
+    "detections": [
+      {
+        "confidence": 0.989410936832428,
+        "bbox": [
+          604.6561889648438,
+          780.8013305664062,
+          833.1720581054688,
+          1075.4385986328125
+        ],
+        "area_pixels": 67329
+      }
+    ]
+  },
+  {
+    "image": "patient_496620_2025-08-20-2.jpg",
+    "num_detections": 1,
+    "detections": [
+      {
+        "confidence": 0.9986611604690552,
+        "bbox": [
+          607.267822265625,
+          528.3077392578125,
+          878.156005859375,
+          835.7810668945312
+        ],
+        "area_pixels": 83290
+      }
+    ]
+  },
+  {
+    "image": "patient_612617_2025-07-30-1.jpg",
+    "num_detections": 1,
+    "detections": [
+      {
+        "confidence": 0.9856331944465637,
+        "bbox": [
+          589.4500122070312,
+          582.8345947265625,
+          774.8464965820312,
+          768.2164916992188
+        ],
+        "area_pixels": 34369
+      }
+    ]
+  },
+  {
+    "image": "patient_496620_2025-10-01-1.jpg",
+    "num_detections": 1,
+    "detections": [
+      {
+        "confidence": 0.9992559552192688,
+        "bbox": [
+          557.7920532226562,
+          566.8444213867188,
+          926.3778076171875,
+          987.5840454101562
+        ],
+        "area_pixels": 155078
+      }
+    ]
+  },
+  {
+    "image": "patient_166034_2025-09-30.jpg",
+    "num_detections": 0,
+    "detections": []
+  },
+  {
+    "image": "patient_129541_2024-12-17.jpg",
+    "num_detections": 1,
+    "detections": [
+      {
+        "confidence": 0.9996881484985352,
+        "bbox": [
+          573.6417846679688,
+          891.4391479492188,
+          976.25146484375,
+          1259.533203125
+        ],
+        "area_pixels": 148198
+      }
+    ]
+  },
+  {
+    "image": "patient_237366_2025-09-02-3.jpg",
+    "num_detections": 1,
+    "detections": [
+      {
+        "confidence": 0.8490976095199585,
+        "bbox": [
+          895.2244262695312,
+          845.7210083007812,
+          1022.7672119140625,
+          956.9071044921875
+        ],
+        "area_pixels": 14180
+      }
+    ]
+  },
+  {
+    "image": "patient_612617_2025-08-20-3.jpg",
+    "num_detections": 0,
+    "detections": []
+  },
+  {
+    "image": "patient_457425_2025-08-06.jpg",
+    "num_detections": 0,
+    "detections": []
+  },
+  {
+    "image": "patient_812812_2024-10-30-1.jpg",
+    "num_detections": 1,
+    "detections": [
+      {
+        "confidence": 0.9935833811759949,
+        "bbox": [
+          898.0728759765625,
+          661.1615600585938,
+          1065.6153564453125,
+          778.9976806640625
+        ],
+        "area_pixels": 19742
+      }
+    ]
+  },
+  {
+    "image": "patient_638104_2024-04-17.jpg",
+    "num_detections": 0,
+    "detections": []
+  },
+  {
+    "image": "patient_447689_2024-04-24.jpg",
+    "num_detections": 2,
+    "detections": [
+      {
+        "confidence": 0.998931348323822,
+        "bbox": [
+          543.9497680664062,
+          795.480224609375,
+          822.1427612304688,
+          1108.71875
+        ],
+        "area_pixels": 87140
+      },
+      {
+        "confidence": 0.9311054348945618,
+        "bbox": [
+          655.8035278320312,
+          161.25338745117188,
+          995.2171020507812,
+          533.7076416015625
+        ],
+        "area_pixels": 126416
+      }
+    ]
+  },
+  {
+    "image": "patient_447689_2025-02-11.jpg",
+    "num_detections": 1,
+    "detections": [
+      {
+        "confidence": 0.9869417548179626,
+        "bbox": [
+          622.115966796875,
+          961.1339721679688,
+          763.0176391601562,
+          1104.378173828125
+        ],
+        "area_pixels": 20183
+      }
+    ]
+  },
+  {
+    "image": "patient_166034_2025-05-07.jpg",
+    "num_detections": 0,
+    "detections": []
+  },
+  {
+    "image": "patient_030378_2025-02-25.jpg",
+    "num_detections": 0,
+    "detections": []
+  },
+  {
+    "image": "patient_905692_2025-03-03-4.jpg",
+    "num_detections": 0,
+    "detections": []
+  },
+  {
+    "image": "patient_936689_2025-08-20.jpg",
+    "num_detections": 1,
+    "detections": [
+      {
+        "confidence": 0.8400060534477234,
+        "bbox": [
+          549.4608764648438,
+          783.969970703125,
+          867.9630126953125,
+          1112.5205078125
+        ],
+        "area_pixels": 104644
+      }
+    ]
+  },
+  {
+    "image": "patient_743788_2025-04-07-2.jpg",
+    "num_detections": 0,
+    "detections": []
+  },
+  {
+    "image": "patient_757088_2024-09-03-1.jpg",
+    "num_detections": 0,
+    "detections": []
+  },
+  {
+    "image": "patient_314019_2024-05-15.jpg",
+    "num_detections": 1,
+    "detections": [
+      {
+        "confidence": 0.9979871511459351,
+        "bbox": [
+          370.90911865234375,
+          713.3538208007812,
+          980.4133911132812,
+          1264.4583740234375
+        ],
+        "area_pixels": 335900
+      }
+    ]
+  },
+  {
+    "image": "patient_215728_2025-05-23-1.jpg",
+    "num_detections": 1,
+    "detections": [
+      {
+        "confidence": 0.9933465719223022,
+        "bbox": [
+          1555.1187744140625,
+          1520.863037109375,
+          1959.70556640625,
+          1912.6483154296875
+        ],
+        "area_pixels": 158511
+      }
+    ]
+  },
+  {
+    "image": "patient_377646_2025-08-13-1.jpg",
+    "num_detections": 0,
+    "detections": []
+  },
+  {
+    "image": "patient_825921_2024-02-06.jpg",
+    "num_detections": 0,
+    "detections": []
+  },
+  {
+    "image": "patient_076296_2025-07-23.jpg",
+    "num_detections": 1,
+    "detections": [
+      {
+        "confidence": 0.9209062457084656,
+        "bbox": [
+          683.3140258789062,
+          1160.32275390625,
+          840.7385864257812,
+          1323.1844482421875
+        ],
+        "area_pixels": 25638
+      }
+    ]
+  },
+  {
+    "image": "patient_129541_2025-08-18-3.jpg",
+    "num_detections": 0,
+    "detections": []
+  },
+  {
+    "image": "patient_612617_2025-08-20-2.jpg",
+    "num_detections": 0,
+    "detections": []
+  },
+  {
+    "image": "patient_998425_2025-05-12-1.jpg",
+    "num_detections": 0,
+    "detections": []
+  },
+  {
+    "image": "patient_131933_2025-04-23-1.jpg",
+    "num_detections": 3,
+    "detections": [
+      {
+        "confidence": 0.9950826168060303,
+        "bbox": [
+          299.89971923828125,
+          4.292116641998291,
+          687.9905395507812,
+          605.7529907226562
+        ],
+        "area_pixels": 233421
+      },
+      {
+        "confidence": 0.9903799295425415,
+        "bbox": [
+          52.21933364868164,
+          438.1038818359375,
+          226.21133422851562,
+          618.2374877929688
+        ],
+        "area_pixels": 31341
+      },
+      {
+        "confidence": 0.9900279641151428,
+        "bbox": [
+          270.28729248046875,
+          1104.91845703125,
+          608.6056518554688,
+          1390.114501953125
+        ],
+        "area_pixels": 96487
+      }
+    ]
+  },
+  {
+    "image": "patient_283310_2025-09-03-3.jpg",
+    "num_detections": 1,
+    "detections": [
+      {
+        "confidence": 0.9895600080490112,
+        "bbox": [
+          646.3279418945312,
+          945.8123779296875,
+          780.93896484375,
+          1082.58642578125
+        ],
+        "area_pixels": 18411
+      }
+    ]
+  },
+  {
+    "image": "patient_088281_2025-07-28-1.jpg",
+    "num_detections": 0,
+    "detections": []
+  },
+  {
+    "image": "patient_812812_2024-12-17.jpg",
+    "num_detections": 1,
+    "detections": [
+      {
+        "confidence": 0.9919196367263794,
+        "bbox": [
+          647.6481323242188,
+          738.4630737304688,
+          818.4948120117188,
+          910.07666015625
+        ],
+        "area_pixels": 29319
+      }
+    ]
+  },
+  {
+    "image": "patient_215728_2024-11-13-1.jpg",
+    "num_detections": 0,
+    "detections": []
+  },
+  {
+    "image": "patient_129541_2025-08-18-1.jpg",
+    "num_detections": 0,
+    "detections": []
+  }
+]
