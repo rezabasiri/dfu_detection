@@ -1,0 +1,90 @@
+# YOLOv8 Configuration
+# Single-stage detector with anchor-free design
+# Fastest inference, good balance of speed and accuracy
+
+model:
+  type: yolo
+  model_size: yolov8m  # Options: yolov8n, yolov8s, yolov8m, yolov8l, yolov8x
+  num_classes: 2  # Note: YOLO uses 1 class (ulcer), no explicit background
+  pretrained: true  # COCO pretrained weights
+
+  # Detection thresholds
+  conf_thresh: 0.25  # Confidence threshold (lower for better recall)
+  iou_thresh: 0.45   # NMS IoU threshold
+  max_det: 100       # Maximum detections per image
+  img_size: 640      # YOLO standard input size
+
+training:
+  # Note: YOLO has its own training pipeline
+  # These params are passed to YOLO's train() method
+  img_size: 640
+  batch_size: 16     # YOLO typically uses smaller batches
+  num_epochs: 200
+  learning_rate: 0.01  # YOLO default LR
+  weight_decay: 0.0005
+
+  # YOLO-specific training params
+  optimizer: auto    # YOLO auto-selects optimizer
+  warmup_epochs: 3
+  close_mosaic: 10   # Disable mosaic augmentation last N epochs
+
+  # Augmentation (YOLO built-in)
+  hsv_h: 0.015
+  hsv_s: 0.7
+  hsv_v: 0.4
+  degrees: 0.0       # Rotation
+  translate: 0.1
+  scale: 0.5
+  shear: 0.0
+  perspective: 0.0
+  flipud: 0.0
+  fliplr: 0.5
+  mosaic: 1.0
+  mixup: 0.0
+
+  # Composite weights for evaluation (YOLO trains with own loss)
+  composite_weights:
+    f1: 0.15
+    iou: 0.20
+    recall: 0.50
+    precision: 0.15
+
+  early_stopping_patience: 50  # YOLO uses patient early stopping
+
+evaluation:
+  confidence_threshold: 0.25
+  iou_threshold: 0.5
+
+data:
+  # YOLO uses its own data format (data.yaml)
+  # We'll need to create this from our LMDB
+  train_lmdb: ../data/train.lmdb
+  val_lmdb: ../data/val.lmdb
+
+  # YOLO data.yaml will be generated dynamically
+  # Should contain paths to images and labels in YOLO format
+
+checkpoint:
+  save_dir: ../checkpoints/yolo
+  save_every_n_epochs: 25
+  keep_best_only: false
+
+notes: |
+  YOLOv8 Model Sizes:
+  - yolov8n: 3.2M params (fastest, lowest accuracy)
+  - yolov8s: 11.2M params (fast, good for deployment)
+  - yolov8m: 25.9M params (recommended balance)
+  - yolov8l: 43.7M params (high accuracy)
+  - yolov8x: 68.2M params (highest accuracy, slowest)
+
+  YOLO advantages:
+  - Very fast inference (~5-10x faster than Faster R-CNN)
+  - Anchor-free design (simpler than RetinaNet)
+  - Built-in augmentations
+  - Easy deployment
+  - Active development and community
+
+  YOLO challenges:
+  - Different training pipeline (harder to integrate)
+  - Requires data format conversion
+  - Less control over loss weighting

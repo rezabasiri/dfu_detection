@@ -2,6 +2,7 @@
 Improved Inference script for DFU detection
 Shows confidence scores and bounding box pixel areas
 Saves top 5 predictions
+Supports multiple architectures: Faster R-CNN, RetinaNet, YOLO
 """
 
 import torch
@@ -13,7 +14,7 @@ from pathlib import Path
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 
-from train_efficientdet import create_efficientdet_model
+from models import create_from_checkpoint
 
 def get_inference_transform(img_size: int = 640):
     """Get inference transforms"""
@@ -234,33 +235,58 @@ def main():
     print(f"\nUsing device: {device}")
 
     print(f"\nLoading model from {args.checkpoint}...")
-    checkpoint = torch.load(args.checkpoint, map_location=device)
-    backbone = checkpoint.get('backbone', 'efficientnet_b3')
 
-    # Auto-detect img_size from checkpoint if available
-    checkpoint_img_size = checkpoint.get('img_size', None)
-    if checkpoint_img_size is not None:
-        img_size = checkpoint_img_size
-        print(f"Auto-detected img_size from checkpoint: {img_size}")
-    else:
-        img_size = args.img_size
-        print(f"Using img_size from arguments: {img_size}")
+    # Use ModelFactory to auto-detect and load model
+    try:
+        detector = create_from_checkpoint(args.checkpoint, device=device)
+        model = detector.get_model()
+        model.eval()
 
-    # UPDATED: Auto-detect num_classes from checkpoint
-    num_classes = checkpoint.get('num_classes', 2)
-    print(f"Model has {num_classes} classes")
-    if num_classes == 3:
-        print(f"  Classes: 0=background, 1=healthy, 2=ulcer")
-        print(f"  Will filter out class 1 (healthy) predictions")
+        # Get checkpoint metadata
+        checkpoint = torch.load(args.checkpoint, map_location=device, weights_only=False)
 
-    model = create_efficientdet_model(num_classes=num_classes, backbone=backbone, pretrained=False)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    model.to(device)
-    model.eval()
+        # Auto-detect img_size from checkpoint if available
+        checkpoint_img_size = checkpoint.get('img_size', None)
+        if checkpoint_img_size is not None:
+            img_size = checkpoint_img_size
+            print(f"Auto-detected img_size from checkpoint: {img_size}")
+        else:
+            img_size = args.img_size
+            print(f"Using img_size from arguments: {img_size}")
 
-    print(f"Loaded model from epoch {checkpoint['epoch']}")
-    if 'val_loss' in checkpoint:
-        print(f"Validation loss: {checkpoint['val_loss']:.4f}")
+        model_name = checkpoint.get('model_name', 'faster_rcnn')
+        print(f"\nModel Info:")
+        print(f"  Architecture: {model_name}")
+        print(f"  Backbone: {detector.backbone_name}")
+        print(f"  Number of classes: {detector.num_classes}")
+        print(f"  Loaded from epoch: {checkpoint.get('epoch', 'unknown')}")
+
+    except Exception as e:
+        print(f"Error loading with ModelFactory: {e}")
+        print("Attempting legacy loading...")
+
+        # Fallback for old checkpoints
+        checkpoint = torch.load(args.checkpoint, map_location=device, weights_only=False)
+        from train_efficientdet import create_efficientdet_model
+
+        backbone = checkpoint.get('backbone', 'efficientnet_b5')
+        num_classes = checkpoint.get('num_classes', 2)
+
+        # Auto-detect img_size
+        checkpoint_img_size = checkpoint.get('img_size', None)
+        if checkpoint_img_size is not None:
+            img_size = checkpoint_img_size
+            print(f"Auto-detected img_size from checkpoint: {img_size}")
+        else:
+            img_size = args.img_size
+            print(f"Using img_size from arguments: {img_size}")
+
+        model = create_efficientdet_model(num_classes=num_classes, backbone=backbone, pretrained=False)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        model.to(device)
+        model.eval()
+
+        print(f"Legacy model loaded from epoch {checkpoint['epoch']}")
 
     os.makedirs(args.output, exist_ok=True)
 
