@@ -1,0 +1,68 @@
+# Faster R-CNN with EfficientNet-B3 Backbone
+# Lighter alternative to B5 - faster training, less VRAM
+
+model:
+  type: faster_rcnn
+  backbone: efficientnet_b3
+  num_classes: 2
+  pretrained: true
+
+  # Same anchor configuration as B5
+  anchor_sizes: [32, 64, 128, 256, 512]
+  aspect_ratios: [0.5, 1.0, 2.0]
+
+  # RPN thresholds (recall-focused)
+  rpn_positive_iou: 0.5
+  rpn_negative_iou: 0.3
+
+  box_nms_thresh: 0.5
+  box_score_thresh: 0.05
+
+  rpn_pre_nms_top_n_train: 2000
+  rpn_pre_nms_top_n_test: 1000
+  rpn_post_nms_top_n_train: 2000
+  rpn_post_nms_top_n_test: 1000
+
+training:
+  img_size: 512
+  batch_size: 36  # Can increase with B3 (less VRAM)
+  num_epochs: 300
+  learning_rate: 0.001
+  weight_decay: 0.0001
+
+  optimizer: AdamW
+
+  scheduler: ReduceLROnPlateau
+  scheduler_params:
+    mode: min
+    factor: 0.5
+    patience: 4
+    min_lr: 0.00001
+
+  # Recall-focused weights for medical diagnosis
+  composite_weights:
+    f1: 0.15
+    iou: 0.20
+    recall: 0.50      # High recall priority
+    precision: 0.15
+
+  early_stopping_patience: 23
+  use_amp: true
+  max_grad_norm: 1.0
+  num_workers: 0
+  pin_memory: true
+
+evaluation:
+  confidence_threshold: 0.3  # Lower for better recall
+  iou_threshold: 0.5
+
+data:
+  train_lmdb: ../data/train.lmdb
+  val_lmdb: ../data/val.lmdb
+  balanced_sampling: true
+  balanced_ratio: 0.5
+
+checkpoint:
+  save_dir: ../checkpoints/faster_rcnn_b3
+  save_every_n_epochs: 25
+  keep_best_only: false

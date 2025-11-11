@@ -1,0 +1,80 @@
+# Faster R-CNN with EfficientNet-B5 Backbone
+# Current production configuration
+
+model:
+  type: faster_rcnn
+  backbone: efficientnet_b5
+  num_classes: 2  # background + ulcer
+  pretrained: true
+
+  # Anchor configuration
+  anchor_sizes: [32, 64, 128, 256, 512]
+  aspect_ratios: [0.5, 1.0, 2.0]
+
+  # RPN thresholds (lowered for better recall)
+  rpn_positive_iou: 0.5  # default: 0.7 - lowered for higher sensitivity
+  rpn_negative_iou: 0.3
+
+  # Box prediction thresholds
+  box_nms_thresh: 0.5  # NMS IoU threshold
+  box_score_thresh: 0.05  # Minimum score to keep proposals
+
+  # RPN proposal numbers
+  rpn_pre_nms_top_n_train: 2000
+  rpn_pre_nms_top_n_test: 1000
+  rpn_post_nms_top_n_train: 2000
+  rpn_post_nms_top_n_test: 1000
+
+training:
+  img_size: 512
+  batch_size: 36  # 18 DFU + 18 healthy (balanced)
+  num_epochs: 300
+  learning_rate: 0.001
+  weight_decay: 0.0001
+
+  # Optimizer
+  optimizer: AdamW
+
+  # Learning rate scheduler
+  scheduler: ReduceLROnPlateau
+  scheduler_params:
+    mode: min
+    factor: 0.5
+    patience: 4
+    min_lr: 0.00001
+
+  # Composite score weights for checkpoint saving
+  # Note: Current conservative weights - adjust for higher recall if needed
+  composite_weights:
+    f1: 0.40
+    iou: 0.25
+    recall: 0.20      # Can increase to 0.50 for medical use
+    precision: 0.15
+
+  # Early stopping
+  early_stopping_patience: 23
+
+  # Mixed precision training
+  use_amp: true
+
+  # Gradient clipping
+  max_grad_norm: 1.0
+
+  # Data loading
+  num_workers: 0  # Set to 0 for LMDB datasets (thread safety)
+  pin_memory: true
+
+evaluation:
+  confidence_threshold: 0.5  # Lower to 0.2-0.3 for better recall
+  iou_threshold: 0.5
+
+data:
+  train_lmdb: ../data/train.lmdb
+  val_lmdb: ../data/val.lmdb
+  balanced_sampling: true
+  balanced_ratio: 0.5  # 50% DFU, 50% healthy per batch
+
+checkpoint:
+  save_dir: ../checkpoints/faster_rcnn
+  save_every_n_epochs: 25
+  keep_best_only: false

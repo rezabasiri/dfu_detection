@@ -1,6 +1,7 @@
 """
 Improved Training script for DFU detection
 Features: Early stopping, validation loss tracking, detailed logging
+Supports multiple architectures: Faster R-CNN, RetinaNet, YOLO
 """
 
 import os
@@ -16,11 +17,14 @@ import json
 from pathlib import Path
 from datetime import datetime
 import shutil
+import argparse
+import yaml
 
 from dataset import DFUDataset, DFUDatasetLMDB, get_train_transforms, get_val_transforms, collate_fn
-from train_efficientdet import create_efficientdet_model, AverageMeter
+from train_efficientdet import AverageMeter  # Keep utility class
 from balanced_sampler import BalancedBatchSampler
 from evaluate import compute_metrics
+from models import ModelFactory, create_model
 
 # ============================================================
 # PRE-TRAINING MEMORY CLEANUP
@@ -87,6 +91,25 @@ def cleanup_epoch():
     # Clear CUDA cache
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
+
+def load_config(config_path: str) -> dict:
+    """
+    Load configuration from YAML file
+
+    Args:
+        config_path: Path to YAML config file
+
+    Returns:
+        Dictionary with configuration
+    """
+    config_path = Path(config_path)
+    if not config_path.exists():
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+
+    return config
 
 def train_one_epoch(model, optimizer, data_loader, device, epoch, scaler=None, max_grad_norm=1.0):
     """Train for one epoch with gradient clipping and NaN detection"""
@@ -257,10 +280,19 @@ def train_model(
     train_image_list=None,
     val_image_list=None,
     healthy_folder=None,
-    max_grad_norm=1.0
+    max_grad_norm=1.0,
+    model_name="faster_rcnn",
+    config_path=None,
+    composite_weights=None
 ):
     """
     Main training function with early stopping and detailed logging
+
+    Args:
+        model_name: Model architecture ('faster_rcnn', 'retinanet', 'yolo')
+        config_path: Path to YAML config file (optional)
+        composite_weights: Dict with weights for composite score (optional)
+            Keys: 'f1', 'iou', 'recall', 'precision'
     """
     # Setup logging
     if log_file is None:
@@ -275,8 +307,48 @@ def train_model(
         with open(log_file, 'a') as f:
             f.write(message + '\n')
 
+    # Load configuration from YAML if provided
+    config = {}
+    if config_path:
+        config = load_config(config_path)
+        log_print(f"Loaded configuration from: {config_path}")
+
+        # Extract training parameters from config (override function defaults)
+        if 'training' in config:
+            train_config = config['training']
+            img_size = train_config.get('img_size', img_size)
+            batch_size = train_config.get('batch_size', batch_size)
+            num_epochs = train_config.get('num_epochs', num_epochs)
+            learning_rate = train_config.get('learning_rate', learning_rate)
+            use_amp = train_config.get('use_amp', use_amp)
+            max_grad_norm = train_config.get('max_grad_norm', max_grad_norm)
+            early_stopping_patience = train_config.get('early_stopping_patience', early_stopping_patience)
+
+            # Extract composite weights from config
+            if 'composite_weights' in train_config and composite_weights is None:
+                composite_weights = train_config['composite_weights']
+
+        # Extract model config
+        if 'model' in config:
+            model_config = config['model']
+            if 'backbone' in model_config:
+                backbone = model_config['backbone']
+
+        # Extract checkpoint directory from config
+        if 'checkpoint' in config and 'save_dir' in config['checkpoint']:
+            checkpoint_dir = config['checkpoint']['save_dir']
+
+    # Set default composite weights if not provided
+    if composite_weights is None:
+        composite_weights = {
+            'f1': 0.40,
+            'iou': 0.25,
+            'recall': 0.20,
+            'precision': 0.15
+        }
+
     log_print("="*60)
-    log_print("Training EfficientDet for DFU Detection")
+    log_print(f"Training {model_name.upper()} for DFU Detection")
     log_print("="*60)
     log_print(f"\nTraining started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
@@ -372,10 +444,37 @@ def train_model(
     log_print(f"  Image size: {img_size}x{img_size}")
 
     # Create model with 2 classes: background (0), ulcer (1)
-    log_print(f"\nCreating model with {backbone} backbone...")
+    log_print(f"\nCreating {model_name} model...")
+    if model_name == 'faster_rcnn':
+        log_print(f"Backbone: {backbone}")
     log_print(f"Classes: 0=background, 1=ulcer (2-class detection)")
-    model = create_efficientdet_model(num_classes=2, backbone=backbone, pretrained=True)
+
+    # Create model using ModelFactory
+    if config_path and 'model' in config:
+        # Use model config from YAML
+        model_config = config['model']
+        model_config['backbone'] = backbone  # Ensure backbone is set
+        detector = ModelFactory.create_model(
+            model_name=model_name,
+            num_classes=2,
+            config=model_config
+        )
+    else:
+        # Use default config with specified backbone
+        model_config = {'backbone': backbone, 'pretrained': True}
+        detector = ModelFactory.create_model(
+            model_name=model_name,
+            num_classes=2,
+            config=model_config
+        )
+
+    # Print model information
+    detector.print_model_info()
+
+    # Get underlying PyTorch model and move to device
+    model = detector.get_model()
     model.to(device)
+    detector.to(device)
 
     # Check for existing checkpoints to resume training
     start_epoch = 1
@@ -400,6 +499,12 @@ def train_model(
             log_print(f"Loading checkpoint from: {resume_checkpoint}")
             # PyTorch 2.6+ requires weights_only=False for checkpoints with numpy scalars
             checkpoint = torch.load(resume_checkpoint, map_location=device, weights_only=False)
+
+            # Check if checkpoint model matches requested model
+            checkpoint_model_name = checkpoint.get('model_name', 'faster_rcnn')  # Default to faster_rcnn for old checkpoints
+            if checkpoint_model_name != model_name:
+                log_print(f"⚠ WARNING: Checkpoint model ({checkpoint_model_name}) differs from requested model ({model_name})")
+                log_print(f"  Attempting to load anyway... this may fail if architectures are incompatible")
 
             # Load model weights only (fresh optimizer as requested)
             model.load_state_dict(checkpoint['model_state_dict'])
@@ -524,12 +629,12 @@ def train_model(
             break
 
         # Compute composite score (weighted combination of metrics)
-        # Weights: 40% F1, 25% IoU, 20% Recall, 15% Precision
+        # Weights configurable via config file or defaults
         composite_score = (
-            0.40 * val_metrics.get('f1_score', 0.0) +
-            0.25 * val_metrics.get('mean_iou', 0.0) +
-            0.20 * val_metrics.get('recall', 0.0) +
-            0.15 * val_metrics.get('precision', 0.0)
+            composite_weights['f1'] * val_metrics.get('f1_score', 0.0) +
+            composite_weights['iou'] * val_metrics.get('mean_iou', 0.0) +
+            composite_weights['recall'] * val_metrics.get('recall', 0.0) +
+            composite_weights['precision'] * val_metrics.get('precision', 0.0)
         )
 
         # Record history
@@ -582,10 +687,13 @@ def train_model(
                 "precision": val_metrics.get('precision', 0.0),
                 "recall": val_metrics.get('recall', 0.0),
                 "composite_score": composite_score,
+                "composite_weights": composite_weights,  # Save weights used
                 "learning_rate": current_lr,  # Save LR at which best model was achieved
                 "backbone": backbone,
                 "img_size": img_size,
-                "num_classes": 2  # 2-class: background + ulcer
+                "num_classes": 2,  # 2-class: background + ulcer
+                "model_name": model_name,  # Save model architecture name
+                "model_config": model_config  # Save model configuration
             }, checkpoint_path)
             log_print(f"  ✓ New best model! Saved to {checkpoint_path}")
             log_print(f"    Composite Score: {composite_score:.4f}")
@@ -606,7 +714,9 @@ def train_model(
                 "val_loss": val_loss,
                 "backbone": backbone,
                 "img_size": img_size,
-                "num_classes": 2  # 2-class: background + ulcer
+                "num_classes": 2,  # 2-class: background + ulcer
+                "model_name": model_name,
+                "model_config": model_config
             }, checkpoint_path)
             log_print(f"  Checkpoint saved: epoch_{epoch}.pth")
 
@@ -645,6 +755,30 @@ def train_model(
     return model, history
 
 if __name__ == "__main__":
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description='Train DFU detection model')
+    parser.add_argument('--model', type=str, default='faster_rcnn',
+                       choices=['faster_rcnn', 'retinanet', 'yolo'],
+                       help='Model architecture to train')
+    parser.add_argument('--config', type=str, default=None,
+                       help='Path to YAML config file (optional)')
+    parser.add_argument('--backbone', type=str, default='efficientnet_b5',
+                       help='Backbone architecture (for Faster R-CNN/RetinaNet)')
+    parser.add_argument('--epochs', type=int, default=None,
+                       help='Number of epochs (overrides config)')
+    parser.add_argument('--batch-size', type=int, default=None,
+                       help='Batch size (overrides config)')
+    parser.add_argument('--lr', type=float, default=None,
+                       help='Learning rate (overrides config)')
+    parser.add_argument('--checkpoint-dir', type=str, default=None,
+                       help='Checkpoint directory (overrides config)')
+    parser.add_argument('--device', type=str, default='cuda',
+                       choices=['cuda', 'cpu'],
+                       help='Device to use for training')
+
+    args = parser.parse_args()
+
+    # Data paths
     data_dir = "../data"
     train_csv = os.path.join(data_dir, "train.csv")
     val_csv = os.path.join(data_dir, "val.csv")
@@ -672,39 +806,63 @@ if __name__ == "__main__":
         print("Training with DFU images only (no healthy feet).")
         print("To add healthy feet: run 'python add_healthy_feet.py'")
 
+    # Determine checkpoint directory
+    if args.checkpoint_dir:
+        checkpoint_dir = args.checkpoint_dir
+    elif args.config:
+        # Will be loaded from config
+        checkpoint_dir = None
+    else:
+        # Default based on model name
+        checkpoint_dir = f"../checkpoints/{args.model}"
+
     print("\n" + "="*60)
-    print("TRAINING CONFIGURATION - 2-CLASS SYSTEM")
+    print(f"TRAINING CONFIGURATION - {args.model.upper()}")
     print("="*60)
     print("SETUP:")
     print("  1. 2-class detection: 0=background, 1=ulcer")
     print("  2. Healthy images as hard negatives (reduces false positives)")
     print("  3. Balanced batch sampling (50% DFU images/batch for stability)")
     print("  4. ReduceLROnPlateau scheduler (adapts to val loss)")
-    print("  5. Learning rate: 0.001 with plateau reduction")
-    print("  6. Hard negative mining: healthy images teach rejection")
+    print(f"  5. Model: {args.model}")
+    if args.config:
+        print(f"  6. Config file: {args.config}")
+    else:
+        print(f"  6. Using default configuration")
     print("\nMODEL SELECTION:")
     print("  - Best model saved based on COMPOSITE SCORE")
-    print("  - Composite = 0.40*F1 + 0.25*IoU + 0.20*Recall + 0.15*Precision")
+    print("  - Composite weights configurable via YAML config")
     print("  - Val loss used only for LR scheduling")
-    print("  - Early stopping based on composite score (patience=23)")
+    print("  - Early stopping based on composite score")
     print("="*60 + "\n")
 
-    model, history = train_model(
-        train_csv=train_csv,
-        val_csv=val_csv,
-        image_folder=image_folder,
-        num_epochs=300,
-        batch_size=36,
-        learning_rate=0.0003,
-        img_size=512,
-        backbone="efficientnet_b5",
-        device="cuda",
-        checkpoint_dir="../checkpoints_b5",
-        early_stopping_patience=23,
-        use_amp=True,
-        train_image_list=train_images,
-        val_image_list=val_images,
-        healthy_folder=healthy_folder if train_images else None
-    )
+    # Prepare training arguments
+    train_args = {
+        'train_csv': train_csv,
+        'val_csv': val_csv,
+        'image_folder': image_folder,
+        'backbone': args.backbone,
+        'device': args.device,
+        'train_image_list': train_images,
+        'val_image_list': val_images,
+        'healthy_folder': healthy_folder if train_images else None,
+        'model_name': args.model,
+        'config_path': args.config
+    }
+
+    # Add checkpoint directory if specified
+    if checkpoint_dir:
+        train_args['checkpoint_dir'] = checkpoint_dir
+
+    # Override config with command-line arguments if provided
+    if args.epochs is not None:
+        train_args['num_epochs'] = args.epochs
+    if args.batch_size is not None:
+        train_args['batch_size'] = args.batch_size
+    if args.lr is not None:
+        train_args['learning_rate'] = args.lr
+
+    # Train model
+    model, history = train_model(**train_args)
 
     print("\nTraining finished! Check the log file for details.")

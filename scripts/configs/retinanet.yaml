@@ -1,0 +1,75 @@
+# RetinaNet with EfficientNet-B3 Backbone
+# Single-stage detector with Focal Loss
+# Recommended for high recall (better for medical diagnosis)
+
+model:
+  type: retinanet
+  backbone: efficientnet_b3
+  num_classes: 2
+  pretrained: true
+
+  # Anchor configuration
+  anchor_sizes: [32, 64, 128, 256, 512]
+  aspect_ratios: [0.5, 1.0, 2.0]
+
+  # Focal Loss parameters (handles class imbalance)
+  focal_loss_alpha: 0.25  # Weight for positive class
+  focal_loss_gamma: 2.0   # Focusing parameter (higher = more focus on hard examples)
+
+  # Detection thresholds
+  score_thresh: 0.05      # Low threshold to keep more proposals
+  nms_thresh: 0.5
+  detections_per_img: 100
+  topk_candidates: 1000
+
+training:
+  img_size: 512
+  batch_size: 36  # 18 DFU + 18 healthy
+  num_epochs: 200  # RetinaNet typically converges faster
+  learning_rate: 0.001
+  weight_decay: 0.0001
+
+  optimizer: AdamW
+
+  scheduler: ReduceLROnPlateau
+  scheduler_params:
+    mode: min
+    factor: 0.5
+    patience: 4
+    min_lr: 0.00001
+
+  # Recall-focused weights (RetinaNet naturally has higher recall)
+  composite_weights:
+    f1: 0.15
+    iou: 0.20
+    recall: 0.50      # Medical priority: don't miss ulcers
+    precision: 0.15
+
+  early_stopping_patience: 20  # Faster convergence
+  use_amp: true
+  max_grad_norm: 1.0
+  num_workers: 0
+  pin_memory: true
+
+evaluation:
+  confidence_threshold: 0.3  # Lower for better recall
+  iou_threshold: 0.5
+
+data:
+  train_lmdb: ../data/train.lmdb
+  val_lmdb: ../data/val.lmdb
+  balanced_sampling: true
+  balanced_ratio: 0.5
+
+checkpoint:
+  save_dir: ../checkpoints/retinanet
+  save_every_n_epochs: 25
+  keep_best_only: false
+
+notes: |
+  RetinaNet advantages for DFU detection:
+  - Focal Loss built-in (perfect for class imbalance)
+  - Single-stage (no RPN bottleneck)
+  - Generally higher recall than Faster R-CNN
+  - Faster inference
+  - Good for medical use cases where recall is critical

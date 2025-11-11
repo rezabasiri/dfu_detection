@@ -1,6 +1,7 @@
 """
 Evaluation script for DFU detection
 Computes metrics like mAP, precision, recall
+Supports multiple architectures: Faster R-CNN, RetinaNet, YOLO
 """
 
 import torch
@@ -9,10 +10,11 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import json
 import os
+import argparse
 from typing import List, Dict
 
 from dataset import DFUDataset, get_val_transforms, collate_fn
-from train_efficientdet import create_efficientdet_model
+from models import ModelFactory, create_from_checkpoint
 
 def compute_iou(box1, box2):
     """
@@ -181,17 +183,34 @@ def evaluate_model(
 
 def main():
     """Main evaluation function"""
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description='Evaluate DFU detection model')
+    parser.add_argument('--checkpoint', type=str, default='../checkpoints/faster_rcnn/best_model.pth',
+                       help='Path to model checkpoint')
+    parser.add_argument('--test-csv', type=str, default='../data/test.csv',
+                       help='Path to test CSV file')
+    parser.add_argument('--image-folder', type=str,
+                       default='/mnt/c/Users/90rez/OneDrive - University of Toronto/PhDUofT/SideProjects/DFU_Detection_Asem/DFUC2022_train_images',
+                       help='Path to images folder')
+    parser.add_argument('--conf-thresholds', type=float, nargs='+', default=[0.3, 0.5, 0.7],
+                       help='Confidence thresholds to evaluate')
+    parser.add_argument('--device', type=str, default='cuda',
+                       choices=['cuda', 'cpu'],
+                       help='Device to use for evaluation')
+
+    args = parser.parse_args()
+
     print("="*60)
     print("DFU Detection - Model Evaluation")
     print("="*60)
 
-    checkpoint_path = "../checkpoints/best_model.pth"
-    test_csv = "../data/test.csv"
-    image_folder = "/mnt/c/Users/90rez/OneDrive - University of Toronto/PhDUofT/SideProjects/DFU_Detection_Asem/DFUC2022_train_images"
+    checkpoint_path = args.checkpoint
+    test_csv = args.test_csv
+    image_folder = args.image_folder
 
     if not os.path.exists(checkpoint_path):
         print(f"Error: Checkpoint not found at {checkpoint_path}")
-        print("Please train the model first using train_efficientdet.py")
+        print("Please train the model first using train_improved.py")
         return
 
     if not os.path.exists(test_csv):
@@ -199,31 +218,49 @@ def main():
         print("Please run data_preprocessing.py first")
         return
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device(args.device if torch.cuda.is_available() else "cpu")
     print(f"\nUsing device: {device}")
 
-    print(f"\nLoading checkpoint from {checkpoint_path}...")
-    checkpoint = torch.load(checkpoint_path, map_location=device)
-    backbone = checkpoint.get('backbone', 'efficientnet_b3')
-    img_size = checkpoint.get('img_size', 640)  # Auto-detect img_size from checkpoint
+    print(f"\nLoading model from checkpoint...")
+    print(f"Checkpoint: {checkpoint_path}")
 
-    print(f"Checkpoint info:")
-    print(f"  Backbone: {backbone}")
-    print(f"  Image size: {img_size}")
+    # Use ModelFactory to auto-detect and load model
+    try:
+        detector = create_from_checkpoint(checkpoint_path, device=device)
+        model = detector.get_model()
+        model.eval()
 
-    print(f"\nCreating model with {backbone} backbone...")
-    # Auto-detect num_classes from checkpoint (default to 2 for new 2-class system)
-    num_classes = checkpoint.get('num_classes', 2)
-    print(f"  Number of classes: {num_classes}")
-    if num_classes == 2:
-        print(f"  Classes: 0=background, 1=ulcer (2-class system)")
-    elif num_classes == 3:
-        print(f"  Classes: 0=background, 1=healthy, 2=ulcer (legacy 3-class system)")
+        # Get checkpoint metadata
+        checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
+        img_size = checkpoint.get('img_size', 640)
+        model_name = checkpoint.get('model_name', 'faster_rcnn')
 
-    model = create_efficientdet_model(num_classes=num_classes, backbone=backbone, pretrained=False)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    model.to(device)
-    model.eval()
+        print(f"\nModel Info:")
+        print(f"  Architecture: {model_name}")
+        print(f"  Backbone: {detector.backbone_name}")
+        print(f"  Image size: {img_size}")
+        print(f"  Number of classes: {detector.num_classes}")
+
+    except Exception as e:
+        print(f"Error loading checkpoint: {e}")
+        print("Attempting legacy loading method...")
+
+        # Fallback for old checkpoints without model_name
+        checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
+        from train_efficientdet import create_efficientdet_model
+
+        backbone = checkpoint.get('backbone', 'efficientnet_b5')
+        img_size = checkpoint.get('img_size', 640)
+        num_classes = checkpoint.get('num_classes', 2)
+
+        print(f"\nLegacy checkpoint detected:")
+        print(f"  Backbone: {backbone}")
+        print(f"  Image size: {img_size}")
+
+        model = create_efficientdet_model(num_classes=num_classes, backbone=backbone, pretrained=False)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        model.to(device)
+        model.eval()
 
     # Print checkpoint info (handle different checkpoint formats)
     epoch_info = checkpoint.get('epoch', 'unknown')
@@ -253,7 +290,7 @@ def main():
         pin_memory=True
     )
 
-    confidence_thresholds = [0.3, 0.5, 0.7]
+    confidence_thresholds = args.conf_thresholds
 
     results = {}
 
