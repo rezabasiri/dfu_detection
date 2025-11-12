@@ -117,12 +117,23 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, scaler=None, m
     loss_meter = AverageMeter()
     skipped_batches = 0
 
+    # Check if this is a YOLO model (expects batched tensor, not list)
+    is_yolo = hasattr(model, '__class__') and 'DetectionModel' in model.__class__.__name__
+
     pbar = tqdm(data_loader, desc=f"Epoch {epoch}")
 
     for images, targets in pbar:
         # NOTE: Balanced sampler ensures each batch has both DFU and healthy images
         # Empty boxes from healthy images act as hard negatives
-        images = [img.to(device) for img in images]
+
+        # Handle different input formats for different models
+        if is_yolo:
+            # YOLO expects batched tensor [B, C, H, W]
+            images = images.to(device)
+        else:
+            # Faster R-CNN / RetinaNet expect list of tensors
+            images = [img.to(device) for img in images]
+
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
         optimizer.zero_grad()
@@ -163,7 +174,9 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, scaler=None, m
 
             optimizer.step()
 
-        loss_meter.update(losses.item(), len(images))
+        # Get batch size (handle both tensor and list formats)
+        batch_size = images.size(0) if is_yolo else len(images)
+        loss_meter.update(losses.item(), batch_size)
         pbar.set_postfix({"loss": f"{loss_meter.avg:.4f}"})
 
     return loss_meter.avg
@@ -183,6 +196,9 @@ def validate(model, data_loader, device, compute_detection_metrics=True, confide
     Returns:
         Tuple of (loss, metrics_dict) where metrics_dict contains f1_score and mean_iou
     """
+    # Check if this is a YOLO model (expects batched tensor, not list)
+    is_yolo = hasattr(model, '__class__') and 'DetectionModel' in model.__class__.__name__
+
     # First pass: compute loss (requires train mode)
     model.train()
     loss_meter = AverageMeter()
@@ -190,13 +206,20 @@ def validate(model, data_loader, device, compute_detection_metrics=True, confide
     pbar = tqdm(data_loader, desc="Computing loss")
 
     for images, targets in pbar:
-        images = [img.to(device) for img in images]
+        # Handle different input formats for different models
+        if is_yolo:
+            images = images.to(device)
+        else:
+            images = [img.to(device) for img in images]
+
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
         loss_dict = model(images, targets)
         losses = sum(loss for loss in loss_dict.values())
 
-        loss_meter.update(losses.item(), len(images))
+        # Get batch size (handle both tensor and list formats)
+        batch_size = images.size(0) if is_yolo else len(images)
+        loss_meter.update(losses.item(), batch_size)
         pbar.set_postfix({"val_loss": f"{loss_meter.avg:.4f}"})
 
     val_loss = loss_meter.avg
@@ -214,14 +237,20 @@ def validate(model, data_loader, device, compute_detection_metrics=True, confide
 
         for images, targets in pbar:
             # Process images in smaller sub-batches to reduce memory pressure
-            batch_size = len(images)
+            batch_size = images.size(0) if is_yolo else len(images)
             sub_batch_size = min(4, batch_size)  # Process max 4 images at a time
 
             for i in range(0, batch_size, sub_batch_size):
-                sub_images = images[i:i+sub_batch_size]
                 sub_targets = targets[i:i+sub_batch_size]
 
-                sub_images = [img.to(device) for img in sub_images]
+                # Handle different input formats for different models
+                if is_yolo:
+                    # YOLO: slice the batched tensor
+                    sub_images = images[i:i+sub_batch_size].to(device)
+                else:
+                    # Faster R-CNN / RetinaNet: slice the list
+                    sub_images = images[i:i+sub_batch_size]
+                    sub_images = [img.to(device) for img in sub_images]
 
                 # Get predictions
                 predictions = model(sub_images)
