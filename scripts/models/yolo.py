@@ -82,38 +82,54 @@ class YOLODetector(BaseDetector):
         self._is_training = False
 
     def _create_model(self):
-        """Create YOLO model"""
+        """Create YOLO model with correct number of classes"""
 
-        # YOLO needs to know the number of classes at creation time
-        # We can't just load pretrained and change nc - that freezes parameters
-        # Instead, load architecture from YAML and optionally load pretrained weights
+        # Build model from YAML config with our number of classes
+        # This ensures detection head is built with correct dimensions
+        model = YOLO(f"{self.model_size}.yaml")
 
+        # Set number of classes before building
+        if hasattr(model, 'model'):
+            model.model.nc = self.yolo_num_classes
+            model.model.names = {i: f"class_{i}" for i in range(self.yolo_num_classes)}
+
+        # If pretrained, load weights from pretrained model (backbone only)
         if self.pretrained:
-            # Start with pretrained model
-            model = YOLO(f"{self.model_size}.pt")
+            try:
+                # Load pretrained weights
+                pretrained_model = YOLO(f"{self.model_size}.pt")
 
-            # For transfer learning with different number of classes:
-            # We need to ensure all parameters are trainable
-            # YOLO automatically handles this during training, but we need to explicitly unfreeze
-            if hasattr(model, 'model'):
-                for param in model.model.parameters():
-                    param.requires_grad = True
+                # Transfer backbone weights (not head, since dimensions differ)
+                if hasattr(model, 'model') and hasattr(pretrained_model, 'model'):
+                    # Get state dicts
+                    pretrained_state = pretrained_model.model.state_dict()
+                    current_state = model.model.state_dict()
 
-                # Update number of classes in the model
-                # This will be used when the detection head is rebuilt during first training step
-                if hasattr(model.model, 'nc'):
-                    model.model.nc = self.yolo_num_classes
+                    # Transfer weights for layers that match
+                    transferred = {}
+                    for name, param in pretrained_state.items():
+                        # Skip detection head layers (cv2, cv3, dfl)
+                        if any(skip in name for skip in ['cv2', 'cv3', 'dfl', 'detect']):
+                            continue
 
-                # Also update in the Detect layer if it exists
-                for module in model.model.modules():
-                    if module.__class__.__name__ == 'Detect':
-                        module.nc = self.yolo_num_classes
-        else:
-            # Load architecture only (no pretrained weights)
-            model = YOLO(f"{self.model_size}.yaml")
-            # Set number of classes in config
-            if hasattr(model, 'model') and hasattr(model.model, 'nc'):
-                model.model.nc = self.yolo_num_classes
+                        # Transfer if shapes match
+                        if name in current_state and param.shape == current_state[name].shape:
+                            transferred[name] = param
+
+                    # Load transferred weights
+                    current_state.update(transferred)
+                    model.model.load_state_dict(current_state)
+
+                    print(f"Transferred {len(transferred)}/{len(pretrained_state)} layers from pretrained model")
+
+            except Exception as e:
+                print(f"Warning: Could not load pretrained weights: {e}")
+                print("Training from scratch...")
+
+        # Ensure all parameters are trainable
+        if hasattr(model, 'model'):
+            for param in model.model.parameters():
+                param.requires_grad = True
 
         return model
 
