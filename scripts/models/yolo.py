@@ -219,6 +219,10 @@ class YOLODetector(BaseDetector):
 
         return predictions
 
+    def __call__(self, images: List[torch.Tensor], targets: Optional[List[Dict]] = None) -> Union[Dict, List[Dict]]:
+        """Make the detector callable (nn.Module compatible)"""
+        return self.forward(images, targets)
+
     def forward(self, images: List[torch.Tensor], targets: Optional[List[Dict]] = None) -> Union[Dict, List[Dict]]:
         """
         Forward pass
