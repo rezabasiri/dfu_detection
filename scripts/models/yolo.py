@@ -83,48 +83,60 @@ class YOLODetector(BaseDetector):
 
     def _create_model(self):
         """Create YOLO model with correct number of classes"""
+        from ultralytics.nn.tasks import DetectionModel, yaml_model_load
 
-        # Build model from YAML config with our number of classes
-        # This ensures detection head is built with correct dimensions
-        model = YOLO(f"{self.model_size}.yaml")
-
-        # Set number of classes before building
-        if hasattr(model, 'model'):
-            model.model.nc = self.yolo_num_classes
-            model.model.names = {i: f"class_{i}" for i in range(self.yolo_num_classes)}
-
-        # If pretrained, load weights from pretrained model (backbone only)
+        # Load pretrained model first to get weights
         if self.pretrained:
-            try:
-                # Load pretrained weights
-                pretrained_model = YOLO(f"{self.model_size}.pt")
+            pretrained_model = YOLO(f"{self.model_size}.pt")
+            pretrained_weights = pretrained_model.model.state_dict() if hasattr(pretrained_model, 'model') else {}
+        else:
+            pretrained_weights = {}
 
-                # Transfer backbone weights (not head, since dimensions differ)
-                if hasattr(model, 'model') and hasattr(pretrained_model, 'model'):
-                    # Get state dicts
-                    pretrained_state = pretrained_model.model.state_dict()
-                    current_state = model.model.state_dict()
+        # Build new model with correct number of classes using DetectionModel directly
+        # This ensures detection head is built with correct dimensions from the start
+        try:
+            # Load model config from YAML
+            cfg_dict = yaml_model_load(f"{self.model_size}.yaml")
 
-                    # Transfer weights for layers that match
-                    transferred = {}
-                    for name, param in pretrained_state.items():
-                        # Skip detection head layers (cv2, cv3, dfl)
-                        if any(skip in name for skip in ['cv2', 'cv3', 'dfl', 'detect']):
-                            continue
+            # Override number of classes in config
+            cfg_dict['nc'] = self.yolo_num_classes
 
-                        # Transfer if shapes match
-                        if name in current_state and param.shape == current_state[name].shape:
-                            transferred[name] = param
+            # Create detection model with correct nc
+            detection_model = DetectionModel(cfg=cfg_dict, nc=self.yolo_num_classes, verbose=False)
 
-                    # Load transferred weights
-                    current_state.update(transferred)
-                    model.model.load_state_dict(current_state)
+            # Transfer pretrained weights (skip head layers that don't match)
+            if pretrained_weights:
+                current_state = detection_model.state_dict()
+                transferred = {}
 
-                    print(f"Transferred {len(transferred)}/{len(pretrained_state)} layers from pretrained model")
+                for name, param in pretrained_weights.items():
+                    # Skip detection head layers (cv2, cv3, dfl, detect)
+                    if any(skip in name for skip in ['cv2', 'cv3', 'dfl', 'detect']):
+                        continue
 
-            except Exception as e:
-                print(f"Warning: Could not load pretrained weights: {e}")
-                print("Training from scratch...")
+                    # Transfer if shapes match
+                    if name in current_state and param.shape == current_state[name].shape:
+                        transferred[name] = param
+
+                # Load transferred weights
+                current_state.update(transferred)
+                detection_model.load_state_dict(current_state)
+
+                print(f"Transferred {len(transferred)}/{len(pretrained_weights)} layers from pretrained model")
+
+            # Wrap in YOLO object for unified interface
+            model = YOLO(f"{self.model_size}.yaml")  # Create wrapper
+            model.model = detection_model  # Replace with our custom model
+
+        except Exception as e:
+            print(f"Error creating model with DetectionModel: {e}")
+            print("Falling back to standard creation...")
+
+            # Fallback: use standard YOLO creation
+            if self.pretrained:
+                model = YOLO(f"{self.model_size}.pt")
+            else:
+                model = YOLO(f"{self.model_size}.yaml")
 
         # Ensure all parameters are trainable
         if hasattr(model, 'model'):
