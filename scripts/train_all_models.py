@@ -1,11 +1,14 @@
 """
 Train all detection models for comparison
 Trains Faster R-CNN, RetinaNet, and YOLO with same data and configuration
+
+Note: YOLO uses train_yolo.py (native interface), others use train_improved.py
 """
 
 import subprocess
 import sys
 import argparse
+import yaml
 from pathlib import Path
 
 
@@ -48,23 +51,67 @@ def train_model(model_config: dict, args):
     print(f"Config: {config_path}")
     print("="*80 + "\n")
 
-    # Build command
-    cmd = [
-        sys.executable,  # Use same Python interpreter
-        'train_improved.py',
-        '--model', model_name,
-        '--config', config_path
-    ]
+    # Build command - YOLO uses dedicated script, others use unified script
+    if model_name == 'yolo':
+        # YOLO uses train_yolo.py with native interface
+        # Load YOLO config to get training parameters
+        config_file = Path(config_path)
+        if config_file.exists():
+            with open(config_file, 'r') as f:
+                yolo_config = yaml.safe_load(f)
 
-    # Add optional arguments
-    if args.epochs:
-        cmd.extend(['--epochs', str(args.epochs)])
-    if args.batch_size:
-        cmd.extend(['--batch-size', str(args.batch_size)])
-    if args.lr:
-        cmd.extend(['--lr', str(args.lr)])
-    if args.device:
-        cmd.extend(['--device', args.device])
+            # Extract parameters from YAML (with overrides from args)
+            epochs = args.epochs if args.epochs else yolo_config.get('training', {}).get('num_epochs', 300)
+            batch_size = args.batch_size if args.batch_size else yolo_config.get('training', {}).get('batch_size', 36)
+            img_size = yolo_config.get('training', {}).get('img_size', 512)
+            model_size = yolo_config.get('model', {}).get('model_size', 'yolov8m')
+            save_period = yolo_config.get('checkpoint', {}).get('save_every_n_epochs', 10)
+            train_lmdb = yolo_config.get('data', {}).get('train_lmdb', '../data/train.lmdb')
+            val_lmdb = yolo_config.get('data', {}).get('val_lmdb', '../data/val.lmdb')
+            project = yolo_config.get('checkpoint', {}).get('save_dir', '../checkpoints/yolo').rsplit('/', 1)[0]
+        else:
+            # Fallback defaults
+            epochs = args.epochs if args.epochs else 300
+            batch_size = args.batch_size if args.batch_size else 36
+            img_size = 512
+            model_size = 'yolov8m'
+            save_period = 10
+            train_lmdb = '../data/train.lmdb'
+            val_lmdb = '../data/val.lmdb'
+            project = '../checkpoints'
+
+        cmd = [
+            sys.executable,
+            'train_yolo.py',
+            '--model', model_size,
+            '--train-lmdb', train_lmdb,
+            '--val-lmdb', val_lmdb,
+            '--epochs', str(epochs),
+            '--batch-size', str(batch_size),
+            '--img-size', str(img_size),
+            '--device', args.device if args.device else 'cuda',
+            '--project', project,
+            '--name', 'yolo',
+            '--save-period', str(save_period)
+        ]
+    else:
+        # Faster R-CNN and RetinaNet use train_improved.py
+        cmd = [
+            sys.executable,
+            'train_improved.py',
+            '--model', model_name,
+            '--config', config_path
+        ]
+
+        # Add optional arguments
+        if args.epochs:
+            cmd.extend(['--epochs', str(args.epochs)])
+        if args.batch_size:
+            cmd.extend(['--batch-size', str(args.batch_size)])
+        if args.lr:
+            cmd.extend(['--lr', str(args.lr)])
+        if args.device:
+            cmd.extend(['--device', args.device])
 
     # Run training
     try:
@@ -96,9 +143,12 @@ Models that will be trained:
 
 Each model will be trained with its own configuration file and save
 checkpoints to separate directories:
-  - ../checkpoints/faster_rcnn/
-  - ../checkpoints/retinanet/
-  - ../checkpoints/yolo/
+  - ../checkpoints/faster_rcnn/best_model.pth
+  - ../checkpoints/retinanet/best_model.pth
+  - ../checkpoints/yolo/weights/best.pt  (note: YOLO uses weights/ subdirectory)
+
+Note: YOLO uses train_yolo.py (native Ultralytics interface) for optimal
+performance. Faster R-CNN and RetinaNet use train_improved.py.
 
 Usage examples:
   # Train all models with default configs
@@ -161,17 +211,27 @@ Usage examples:
     if args.dry_run:
         print("\n⚠ DRY RUN - No training will be performed")
         for model in models_to_train:
-            cmd_parts = [
-                'train_improved.py',
-                f'--model {model["name"]}',
-                f'--config {model["config"]}'
-            ]
-            if args.epochs:
-                cmd_parts.append(f'--epochs {args.epochs}')
-            if args.batch_size:
-                cmd_parts.append(f'--batch-size {args.batch_size}')
-            if args.lr:
-                cmd_parts.append(f'--lr {args.lr}')
+            if model['name'] == 'yolo':
+                cmd_parts = [
+                    'train_yolo.py',
+                    f'--model yolov8m',
+                ]
+                if args.epochs:
+                    cmd_parts.append(f'--epochs {args.epochs}')
+                if args.batch_size:
+                    cmd_parts.append(f'--batch-size {args.batch_size}')
+            else:
+                cmd_parts = [
+                    'train_improved.py',
+                    f'--model {model["name"]}',
+                    f'--config {model["config"]}'
+                ]
+                if args.epochs:
+                    cmd_parts.append(f'--epochs {args.epochs}')
+                if args.batch_size:
+                    cmd_parts.append(f'--batch-size {args.batch_size}')
+                if args.lr:
+                    cmd_parts.append(f'--lr {args.lr}')
             print(f"\nWould run: python {' '.join(cmd_parts)}")
         return
 
@@ -214,17 +274,25 @@ Usage examples:
     print("\n" + "="*80)
     print("NEXT STEPS")
     print("="*80)
-    print("\n1. Compare models with evaluate.py:")
+    print("\n1. Evaluate models:")
+    print("   # Faster R-CNN / RetinaNet:")
     print("   python evaluate.py --checkpoint ../checkpoints/faster_rcnn/best_model.pth")
     print("   python evaluate.py --checkpoint ../checkpoints/retinanet/best_model.pth")
-    print("   python evaluate.py --checkpoint ../checkpoints/yolo/best_model.pth")
+    print("   # YOLO:")
+    print("   python evaluate_yolo.py --model ../checkpoints/yolo/weights/best.pt")
 
-    print("\n2. Run inference:")
+    print("\n2. Compare results:")
+    print("   python compare_models.py  # Compares all trained models")
+
+    print("\n3. Run inference:")
     print("   python inference_improved.py --checkpoint <path> --image <image>")
 
-    print("\n3. Check training logs:")
+    print("\n4. Check training logs:")
     for name in successful:
-        print(f"   ../checkpoints/{name}/training_log_*.txt")
+        if name == 'yolo':
+            print(f"   ../checkpoints/{name}/results.csv  # YOLO training history")
+        else:
+            print(f"   ../checkpoints/{name}/training_log_*.txt")
 
     print("\n" + "="*80)
 
