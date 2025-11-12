@@ -114,8 +114,9 @@ class RetinaNetDetector(BaseDetector):
         # Extract intermediate feature channels for FPN
         # EfficientNet-B0 channel progression: 16, 24, 40, 112, 320, 1280
         # We'll use layers at different strides for multi-scale features
-        in_channels_list = [16, 24, 40, 112, 1280]  # Channels at different stages
-        return_layers = {'1': '0', '2': '1', '3': '2', '5': '3', '8': '4'}  # Layer indices
+        # Using 3 levels (P3, P4, P5) instead of 5 to save memory
+        in_channels_list = [24, 40, 112]  # Channels at layers 2, 3, 5
+        return_layers = {'2': '0', '3': '1', '5': '2'}  # Layer indices
 
         # Create IntermediateLayerGetter to extract multi-scale features
         from torchvision.models._utils import IntermediateLayerGetter
@@ -123,13 +124,14 @@ class RetinaNetDetector(BaseDetector):
 
         # Create FPN on top of the backbone
         # FPN normalizes all feature channels to out_channels_fpn
-        out_channels_fpn = 256  # Standard FPN output channels
+        # Using 128 channels instead of 256 to save memory
+        out_channels_fpn = 128
         backbone = BackboneWithFPN(
             body,
             return_layers=return_layers,
             in_channels_list=in_channels_list,
             out_channels=out_channels_fpn,
-            extra_blocks=LastLevelP6P7(out_channels_fpn, out_channels_fpn),  # Add P6, P7 levels
+            extra_blocks=LastLevelP6P7(out_channels_fpn, out_channels_fpn),  # P6, P7 for RetinaNet
         )
 
         backbone.out_channels = out_channels_fpn
