@@ -10,24 +10,44 @@ from pathlib import Path
 from datetime import datetime
 import sys
 
-def load_checkpoint_metrics(checkpoint_path):
+def load_checkpoint_metrics(checkpoint_path, model_name=''):
     """Load metrics from a checkpoint file."""
     try:
         checkpoint = torch.load(checkpoint_path, map_location='cpu', weights_only=False)
 
-        return {
-            'epoch': checkpoint.get('epoch', 'N/A'),
-            'train_loss': checkpoint.get('train_loss', 0.0),
-            'val_loss': checkpoint.get('val_loss', 0.0),
-            'f1_score': checkpoint.get('f1_score', 0.0),
-            'mean_iou': checkpoint.get('mean_iou', 0.0),
-            'precision': checkpoint.get('precision', 0.0),
-            'recall': checkpoint.get('recall', 0.0),
-            'composite_score': checkpoint.get('composite_score', 0.0),
-            'learning_rate': checkpoint.get('learning_rate', 0.0),
-            'model_name': checkpoint.get('model_name', 'unknown'),
-            'backbone': checkpoint.get('backbone', 'unknown'),
-        }
+        # YOLO checkpoints have different structure
+        if model_name == 'yolo':
+            # YOLO native checkpoints don't have our custom metrics
+            # These would need to be computed separately using evaluate_yolo.py
+            return {
+                'epoch': checkpoint.get('epoch', 'N/A'),
+                'train_loss': 0.0,  # YOLO uses different loss structure
+                'val_loss': 0.0,
+                'f1_score': 0.0,     # Compute using evaluate_yolo.py
+                'mean_iou': 0.0,     # Compute using evaluate_yolo.py
+                'precision': 0.0,    # Compute using evaluate_yolo.py
+                'recall': 0.0,       # Compute using evaluate_yolo.py
+                'composite_score': 0.0,  # Compute using evaluate_yolo.py
+                'learning_rate': 0.0,
+                'model_name': 'YOLOv8',
+                'backbone': 'CSPDarknet',
+                'note': 'Run evaluate_yolo.py to compute comparable metrics'
+            }
+        else:
+            # Faster R-CNN and RetinaNet
+            return {
+                'epoch': checkpoint.get('epoch', 'N/A'),
+                'train_loss': checkpoint.get('train_loss', 0.0),
+                'val_loss': checkpoint.get('val_loss', 0.0),
+                'f1_score': checkpoint.get('f1_score', 0.0),
+                'mean_iou': checkpoint.get('mean_iou', 0.0),
+                'precision': checkpoint.get('precision', 0.0),
+                'recall': checkpoint.get('recall', 0.0),
+                'composite_score': checkpoint.get('composite_score', 0.0),
+                'learning_rate': checkpoint.get('learning_rate', 0.0),
+                'model_name': checkpoint.get('model_name', 'unknown'),
+                'backbone': checkpoint.get('backbone', 'unknown'),
+            }
     except Exception as e:
         print(f"Error loading checkpoint {checkpoint_path}: {e}")
         return None
@@ -88,6 +108,11 @@ def print_detailed_metrics(models_data):
             print(f"  Mean IoU:            {format_metric(data['mean_iou'])}")
             print(f"  Recall:              {format_metric(data['recall'])}")
             print(f"  Precision:           {format_metric(data['precision'])}")
+
+            # Special note for YOLO
+            if model_name == 'yolo' and data.get('note'):
+                print(f"  ")
+                print(f"  ⚠ Note: {data['note']}")
         else:
             print("  No checkpoint found")
 
@@ -98,10 +123,14 @@ def print_recommendations(models_data):
     print("=" * 100)
 
     # Find best model for each metric
-    valid_models = {k: v for k, v in models_data.items() if v is not None}
+    valid_models = {k: v for k, v in models_data.items() if v is not None and v.get('composite_score', 0) > 0}
 
     if not valid_models:
-        print("\nNo valid models found to compare.")
+        print("\nNo valid models with metrics found to compare.")
+        print("\nNote: YOLO checkpoints don't store custom metrics.")
+        print("To get comparable YOLO metrics, run:")
+        print("  cd ../scripts")
+        print("  python evaluate_yolo.py --model ../checkpoints_test/yolo/weights/best.pt")
         return
 
     best_composite = max(valid_models.items(), key=lambda x: x[1]['composite_score'])
@@ -153,10 +182,15 @@ def main():
     # Load metrics for each model
     models_data = {}
     for model_name in models:
-        checkpoint_path = checkpoint_base / model_name / "best_model.pth"
+        # YOLO uses different checkpoint path and format
+        if model_name == 'yolo':
+            checkpoint_path = checkpoint_base / model_name / "weights" / "best.pt"
+        else:
+            checkpoint_path = checkpoint_base / model_name / "best_model.pth"
+
         if checkpoint_path.exists():
             print(f"Loading metrics for {model_name}...")
-            models_data[model_name] = load_checkpoint_metrics(checkpoint_path)
+            models_data[model_name] = load_checkpoint_metrics(checkpoint_path, model_name)
         else:
             print(f"⚠ Checkpoint not found for {model_name}: {checkpoint_path}")
             models_data[model_name] = None
@@ -174,13 +208,20 @@ def main():
     print("   python train_improved.py --model <model_name> --config configs/<config>.yaml")
 
     print("\n2. Evaluate models on test set:")
-    print("   python evaluate.py --checkpoint checkpoints_test/<model>/best_model.pth")
+    print("   # Faster R-CNN / RetinaNet:")
+    print("   python evaluate.py --checkpoint ../checkpoints_test/<model>/best_model.pth")
+    print("   # YOLO:")
+    print("   python evaluate_yolo.py --model ../checkpoints_test/yolo/weights/best.pt")
 
     print("\n3. Run inference on new images:")
     print("   python inference_improved.py --checkpoint <path> --image <image_path>")
 
     print("\n4. View training logs:")
-    print("   cat checkpoints_test/*/training_log_*.txt\n")
+    print("   cat ../checkpoints_test/*/training_log_*.txt")
+
+    print("\n5. For YOLO metrics compatible with other models:")
+    print("   cd ../scripts")
+    print("   python evaluate_yolo.py --model ../checkpoints_test/yolo/weights/best.pt\n")
 
 if __name__ == "__main__":
     main()
