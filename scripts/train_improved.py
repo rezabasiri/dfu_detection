@@ -171,7 +171,7 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, scaler=None, m
     return loss_meter.avg
 
 @torch.no_grad()
-def validate(model, data_loader, device, compute_detection_metrics=True, confidence_threshold=0.5):
+def validate(model, data_loader, device, compute_detection_metrics=True, confidence_threshold=0.05):
     """
     Validate the model and return loss + detection metrics (F1, IoU)
 
@@ -180,10 +180,14 @@ def validate(model, data_loader, device, compute_detection_metrics=True, confide
         data_loader: Validation data loader
         device: Device to run on
         compute_detection_metrics: Whether to compute F1/IoU (slower but more informative)
-        confidence_threshold: Confidence threshold for detections
+        confidence_threshold: Confidence threshold for detections (default: 0.05 for early training)
 
     Returns:
         Tuple of (loss, metrics_dict) where metrics_dict contains f1_score and mean_iou
+
+    Note:
+        Uses low confidence threshold (0.05) by default to capture predictions during
+        early training when model confidence is still building up.
     """
     # First pass: compute loss (requires train mode)
     model.train()
@@ -230,6 +234,9 @@ def validate(model, data_loader, device, compute_detection_metrics=True, confide
 
                 # Filter predictions by confidence and label
                 for pred in predictions:
+                    # Early training: keep track of all predictions for debugging
+                    num_raw_preds = len(pred['scores']) if len(pred['scores']) > 0 else 0
+
                     mask = pred['scores'] >= confidence_threshold
                     if 'labels' in pred and len(pred['labels']) > 0:
                         label_mask = pred['labels'] > 0  # Keep only ulcer predictions (not background)
@@ -261,7 +268,16 @@ def validate(model, data_loader, device, compute_detection_metrics=True, confide
                 torch.cuda.empty_cache()
 
         # Compute metrics
+        # Count predictions for debugging
+        total_preds = sum(len(p['scores']) for p in all_predictions)
+        total_targets = sum(len(t['boxes']) for t in all_targets)
+
+        # Compute metrics
         metrics = compute_metrics(all_predictions, all_targets, iou_threshold=0.5)
+
+        # Add debug info to metrics
+        metrics['total_predictions'] = total_preds
+        metrics['total_targets'] = total_targets
 
     return val_loss, metrics
 
@@ -638,7 +654,9 @@ def train_model(
         train_loss = train_one_epoch(model, optimizer, train_loader, device, epoch, scaler, max_grad_norm)
 
         # Validate with metrics (compute F1/IoU every epoch)
-        val_loss, val_metrics = validate(model, val_loader, device, compute_detection_metrics=True, confidence_threshold=0.5)
+        # Use lower confidence threshold (0.05) to see model progress during training
+        # Final deployment would use higher threshold (0.5)
+        val_loss, val_metrics = validate(model, val_loader, device, compute_detection_metrics=True, confidence_threshold=0.05)
 
         # Check for NaN values - immediate stop if detected
         if not (torch.isfinite(torch.tensor(train_loss)) and torch.isfinite(torch.tensor(val_loss))):
@@ -688,6 +706,12 @@ def train_model(
         log_print(f"  Precision:  {val_metrics.get('precision', 0.0):.4f} (best: {best_precision:.4f})")
         log_print(f"  Recall:     {val_metrics.get('recall', 0.0):.4f} (best: {best_recall:.4f})")
         log_print(f"  Composite:  {composite_score:.4f} (best: {best_composite_score:.4f})")
+
+        # Debug info: show predictions vs targets
+        total_preds = val_metrics.get('total_predictions', 0)
+        total_targets = val_metrics.get('total_targets', 0)
+        if total_targets > 0:
+            log_print(f"  Debug: {total_preds} predictions for {total_targets} ground truth boxes (conf>0.05)")
 
         # Update learning rate based on validation loss (stability signal)
         lr_scheduler.step(val_loss)
