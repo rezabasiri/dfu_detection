@@ -4,12 +4,24 @@ Run Test Training for All Three Models
 Trains Faster R-CNN, RetinaNet, and YOLOv8 on small test dataset sequentially.
 
 Note: YOLO uses train_yolo.py (native interface), others use train_improved.py
+
+Usage:
+    # Train all models
+    python run_test_training.py
+
+    # Train specific models
+    python run_test_training.py --models faster_rcnn retinanet
+    python run_test_training.py --models yolo --gpu
+
+    # Train on GPU
+    python run_test_training.py --gpu
 """
 
 import subprocess
 import sys
 import time
 import os
+import argparse
 from pathlib import Path
 from datetime import datetime
 
@@ -38,6 +50,9 @@ def print_section(title):
     print(f"  {title}")
     print("=" * 70 + "\n")
 
+# Global device variable (set in main)
+DEVICE = 'cpu'
+
 def train_model(model_config):
     """Train a single model."""
     model_name = model_config['name']
@@ -58,7 +73,7 @@ def train_model(model_config):
             '--epochs', '2',
             '--batch-size', '8',
             '--img-size', '128',
-            '--device', 'cuda' if sys.argv[1:] and sys.argv[1] == '--gpu' else 'cpu',
+            '--device', DEVICE,
             '--project', '../checkpoints_test',
             '--name', 'yolo'
         ]
@@ -69,7 +84,7 @@ def train_model(model_config):
             'train_improved.py',
             '--model', model_name,
             '--config', config_path,
-            '--device', 'cuda' if sys.argv[1:] and sys.argv[1] == '--gpu' else 'cpu'
+            '--device', DEVICE
         ]
 
     print(f"Command: {' '.join(cmd)}\n")
@@ -147,6 +162,46 @@ def print_summary(results):
 
 def main():
     """Run all test trainings."""
+    # Parse arguments
+    parser = argparse.ArgumentParser(
+        description='Run test training for DFU detection models',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Train all models on CPU
+  python run_test_training.py
+
+  # Train all models on GPU
+  python run_test_training.py --gpu
+
+  # Train specific models
+  python run_test_training.py --models faster_rcnn retinanet
+  python run_test_training.py --models yolo --gpu
+
+  # Train only YOLO
+  python run_test_training.py --models yolo
+        """
+    )
+    parser.add_argument('--models', nargs='+',
+                        choices=['faster_rcnn', 'retinanet', 'yolo', 'all'],
+                        default=['all'],
+                        help='Models to train (default: all)')
+    parser.add_argument('--gpu', action='store_true',
+                        help='Use GPU for training')
+
+    args = parser.parse_args()
+
+    # Filter models based on selection
+    if 'all' in args.models:
+        models_to_train = MODELS
+    else:
+        models_to_train = [m for m in MODELS if m['name'] in args.models]
+
+    if not models_to_train:
+        print("ERROR: No valid models selected!")
+        print(f"Available models: {[m['name'] for m in MODELS]}")
+        return
+
     # Change to scripts directory (parent of test_small)
     scripts_dir = Path(__file__).parent.parent
     os.chdir(scripts_dir)
@@ -154,7 +209,8 @@ def main():
 
     print_section("DFU Detection - Test Training Suite")
     print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"Number of models: {len(MODELS)}")
+    print(f"Models to train: {[m['name'] for m in models_to_train]}")
+    print(f"Number of models: {len(models_to_train)}")
 
     # Check if test dataset exists
     data_dir = Path(scripts_dir).parent / "data"
@@ -168,7 +224,7 @@ def main():
         return
 
     # Print device info
-    device = 'cuda' if sys.argv[1:] and sys.argv[1] == '--gpu' else 'cpu'
+    device = 'cuda' if args.gpu else 'cpu'
     print(f"Device: {device}")
 
     if device == 'cuda':
@@ -180,15 +236,19 @@ def main():
         except ImportError:
             print("⚠ PyTorch not installed yet")
 
+    # Store device for train_model function
+    global DEVICE
+    DEVICE = device
+
     # Run training for each model
     results = []
-    for i, model in enumerate(MODELS, 1):
-        print(f"\n[{i}/{len(MODELS)}] Starting {model['name']}...")
+    for i, model in enumerate(models_to_train, 1):
+        print(f"\n[{i}/{len(models_to_train)}] Starting {model['name']}...")
         result = train_model(model)
         results.append(result)
 
         # Wait a bit between trainings
-        if i < len(MODELS):
+        if i < len(models_to_train):
             print("\nWaiting 5 seconds before next training...")
             time.sleep(5)
 
