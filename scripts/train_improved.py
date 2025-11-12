@@ -294,24 +294,10 @@ def train_model(
         composite_weights: Dict with weights for composite score (optional)
             Keys: 'f1', 'iou', 'recall', 'precision'
     """
-    # Setup logging
-    if log_file is None:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_file = os.path.join(checkpoint_dir, f"training_log_{timestamp}.txt")
-
-    os.makedirs(checkpoint_dir, exist_ok=True)
-
-    def log_print(message):
-        """Print and log to file"""
-        print(message)
-        with open(log_file, 'a') as f:
-            f.write(message + '\n')
-
-    # Load configuration from YAML if provided
+    # Load configuration from YAML if provided (do this BEFORE creating directories)
     config = {}
     if config_path:
         config = load_config(config_path)
-        log_print(f"Loaded configuration from: {config_path}")
 
         # Extract training parameters from config (override function defaults)
         if 'training' in config:
@@ -337,6 +323,24 @@ def train_model(
         # Extract checkpoint directory from config
         if 'checkpoint' in config and 'save_dir' in config['checkpoint']:
             checkpoint_dir = config['checkpoint']['save_dir']
+
+    # Setup logging (after checkpoint_dir is finalized)
+    if log_file is None:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_file = os.path.join(checkpoint_dir, f"training_log_{timestamp}.txt")
+
+    # Create checkpoint directory AFTER loading config
+    os.makedirs(checkpoint_dir, exist_ok=True)
+
+    def log_print(message):
+        """Print and log to file"""
+        print(message)
+        with open(log_file, 'a') as f:
+            f.write(message + '\n')
+
+    # Log config load
+    if config_path:
+        log_print(f"Loaded configuration from: {config_path}")
 
     # Set default composite weights if not provided
     if composite_weights is None:
