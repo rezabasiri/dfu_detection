@@ -170,6 +170,7 @@ def train_yolo(
     project='runs/yolo',
     name='dfu_detection',
     pretrained=True,
+    save_period=10,
     **kwargs
 ):
     """
@@ -185,6 +186,7 @@ def train_yolo(
         project: Project directory for results
         name: Experiment name
         pretrained: Use COCO pretrained weights
+        save_period: Save checkpoint every N epochs (best.pt and last.pt always saved)
         **kwargs: Additional YOLO training arguments
     """
 
@@ -238,7 +240,7 @@ def train_yolo(
         cls=0.5,  # Classification loss weight
         dfl=1.5,  # DFL loss weight
         save=True,  # Save checkpoints
-        save_period=10,  # Save every 10 epochs
+        save_period=save_period,  # Save checkpoint every N epochs
         val=True,  # Validate during training
         plots=True,  # Generate plots
         verbose=True,
@@ -292,6 +294,8 @@ def main():
                         help='Project directory for results')
     parser.add_argument('--name', type=str, default='dfu_detection',
                         help='Experiment name')
+    parser.add_argument('--save-period', type=int, default=10,
+                        help='Save checkpoint every N epochs (default: 10). Note: best.pt and last.pt are always saved.')
 
     # Evaluation arguments
     parser.add_argument('--compute-metrics', action='store_true', default=True,
@@ -368,7 +372,8 @@ def main():
         device=args.device,
         project=args.project,
         name=args.name,
-        pretrained=args.pretrained
+        pretrained=args.pretrained,
+        save_period=args.save_period  # Pass save_period to YOLO
     )
 
     print("\n✓ Training complete! Results saved to:")
