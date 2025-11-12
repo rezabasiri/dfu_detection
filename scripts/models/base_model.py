@@ -6,7 +6,7 @@ Provides unified interface for Faster R-CNN, RetinaNet, and YOLO
 from abc import ABC, abstractmethod
 import torch
 import torch.nn as nn
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 
 
 class BaseDetector(ABC):
@@ -185,7 +185,3 @@ class BaseDetector(ABC):
         print(f"Total parameters: {info['total_params']:,}")
         print(f"Trainable parameters: {info['trainable_params']:,}")
         print(f"{'='*60}\n")
-
-
-# Import Union for type hints
-from typing import Union

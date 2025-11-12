@@ -1,0 +1,79 @@
+# Test Configuration: Faster R-CNN with EfficientNet-B0
+# Small test run: 100 images, 2 epochs, 128x128, batch size 8
+
+model:
+  type: faster_rcnn
+  backbone: efficientnet_b0  # Lighter backbone for quick testing
+  num_classes: 2  # background + ulcer
+  pretrained: true
+
+  # Anchor configuration
+  anchor_sizes: [16, 32, 64, 128]  # Adjusted for 128x128 images
+  aspect_ratios: [0.5, 1.0, 2.0]
+
+  # RPN thresholds
+  rpn_positive_iou: 0.5
+  rpn_negative_iou: 0.3
+
+  # Box prediction thresholds
+  box_nms_thresh: 0.5
+  box_score_thresh: 0.05
+
+  # RPN proposal numbers (reduced for small test)
+  rpn_pre_nms_top_n_train: 500
+  rpn_pre_nms_top_n_test: 250
+  rpn_post_nms_top_n_train: 500
+  rpn_post_nms_top_n_test: 250
+
+training:
+  img_size: 128  # Small for quick testing
+  batch_size: 8
+  num_epochs: 2  # Quick test
+  learning_rate: 0.001
+  weight_decay: 0.0001
+
+  # Optimizer
+  optimizer: AdamW
+
+  # Learning rate scheduler
+  scheduler: ReduceLROnPlateau
+  scheduler_params:
+    mode: min
+    factor: 0.5
+    patience: 2
+    min_lr: 0.00001
+
+  # Composite score weights
+  composite_weights:
+    f1: 0.40
+    iou: 0.25
+    recall: 0.20
+    precision: 0.15
+
+  # Early stopping (disabled for short test)
+  early_stopping_patience: 100
+
+  # Mixed precision training
+  use_amp: true
+
+  # Gradient clipping
+  max_grad_norm: 1.0
+
+  # Data loading
+  num_workers: 0
+  pin_memory: true
+
+evaluation:
+  confidence_threshold: 0.5
+  iou_threshold: 0.5
+
+data:
+  train_lmdb: ../../data/test_train.lmdb
+  val_lmdb: ../../data/test_val.lmdb
+  balanced_sampling: true
+  balanced_ratio: 0.5
+
+checkpoint:
+  save_dir: ../../checkpoints_test/faster_rcnn
+  save_every_n_epochs: 1
+  keep_best_only: false

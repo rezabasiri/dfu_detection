@@ -109,10 +109,10 @@ class FasterRCNNDetector(BaseDetector):
         backbone_model = nn.Sequential(*list(efficientnet.children())[:-2])
         backbone_model.out_channels = out_channels
 
-        # Create anchor generator
+        # Create anchor generator (single feature map from EfficientNet)
         anchor_generator = AnchorGenerator(
-            sizes=(self.anchor_sizes,) * 5,  # 5 feature maps
-            aspect_ratios=(self.aspect_ratios,) * 5
+            sizes=(self.anchor_sizes,),  # Single feature map
+            aspect_ratios=(self.aspect_ratios,)
         )
 
         # Create ROI pooler

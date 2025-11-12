@@ -1,4 +1,29 @@
+# ==============================================================================
+# ENVIRONMENT SETUP NOTES
+# ==============================================================================
+#
+# Tested and Working Configuration:
+# - Python: 3.12.3
+# - PyTorch: 2.5.1 with CUDA 12.1
+# - GPU: NVIDIA TITAN Xp (12GB, compute capability 6.1)
+# - Driver: 581.29
+# - CUDA Runtime: 13.0 (backward compatible with PyTorch CUDA 12.1)
+#
+# Installation Command for NVIDIA TITAN Xp (sm_61) and similar GPUs:
+#   pip install torch==2.5.1 torchvision==0.20.1 --index-url https://download.pytorch.org/whl/cu121
+#
+# IMPORTANT: PyTorch 2.6+ (CUDA 12.8) does NOT support compute capability 6.1
+#            (TITAN Xp, GTX 1080, Quadro P400, etc.)
+#            These GPUs require PyTorch ≤2.5.1 with CUDA ≤12.1
+#
+# For newer GPUs (compute capability ≥7.0), use latest PyTorch:
+#   pip install torch torchvision torchaudio
+#
+# ==============================================================================
+
 # Deep Learning Framework
+# NOTE: Version constraints below are flexible ranges.
+# For specific GPU compatibility, see installation notes above.
 torch>=2.1.0
 torchvision>=0.16.0
 torchaudio>=2.1.0

@@ -1,0 +1,83 @@
+# Test Configuration: YOLOv8-nano
+# Small test run: 100 images, 2 epochs, 128x128, batch size 8
+
+model:
+  type: yolo
+  model_size: yolov8n  # Nano model for quick testing
+  num_classes: 2  # background + ulcer
+  pretrained: true
+
+  # Image size
+  img_size: 128
+
+  # Detection thresholds
+  conf_thresh: 0.25
+  iou_thresh: 0.45
+  max_det: 100
+
+training:
+  img_size: 128  # Small for quick testing
+  batch_size: 8
+  num_epochs: 2  # Quick test
+  learning_rate: 0.001
+  weight_decay: 0.0001
+
+  # Optimizer (YOLO auto-selects)
+  optimizer: auto
+
+  # YOLO-specific training parameters
+  warmup_epochs: 0  # Disabled for short test
+  close_mosaic: 1
+
+  # YOLO augmentations (reduced for testing)
+  hsv_h: 0.015
+  hsv_s: 0.7
+  hsv_v: 0.4
+  degrees: 0.0
+  translate: 0.1
+  scale: 0.5
+  flipud: 0.0
+  fliplr: 0.5
+  mosaic: 0.5  # Reduced
+  mixup: 0.0
+
+  # Composite score weights
+  composite_weights:
+    f1: 0.40
+    iou: 0.25
+    recall: 0.20
+    precision: 0.15
+
+  # Early stopping (disabled for short test)
+  early_stopping_patience: 100
+
+  # Mixed precision training
+  use_amp: true
+
+  # Gradient clipping
+  max_grad_norm: 1.0
+
+  # Data loading
+  num_workers: 0
+  pin_memory: true
+
+evaluation:
+  confidence_threshold: 0.5
+  iou_threshold: 0.5
+
+data:
+  train_lmdb: ../../data/test_train.lmdb
+  val_lmdb: ../../data/test_val.lmdb
+  balanced_sampling: true
+  balanced_ratio: 0.5
+
+checkpoint:
+  save_dir: ../../checkpoints_test/yolo
+  save_every_n_epochs: 1
+  keep_best_only: false
+
+notes: |
+  YOLOv8-nano (n) for quick testing:
+  - 3.2M params (fastest)
+  - Good for debugging and quick tests
+  - Not for production use
