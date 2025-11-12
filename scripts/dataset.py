@@ -420,7 +420,6 @@ def get_train_transforms(img_size: int = 640) -> A.Compose:
             A.AtLeastOneBBoxRandomCrop(
                 height=img_size * 0.50,
                 width=img_size * 0.50,
-                erosion_rate=0.1,
                 p=1.0
             ),
             
