@@ -343,6 +343,35 @@ class YOLODetector(BaseDetector):
         if hasattr(self.model, 'model'):
             self.model.model.eval()
 
+    def train(self, mode=True):
+        """Set model to training mode (nn.Module compatible)"""
+        if mode:
+            self.set_train_mode()
+        else:
+            self.set_eval_mode()
+        return self
+
+    def eval(self):
+        """Set model to evaluation mode (nn.Module compatible)"""
+        return self.train(False)
+
+    def parameters(self):
+        """Get model parameters (nn.Module compatible)"""
+        if hasattr(self.model, 'model'):
+            return self.model.model.parameters()
+        return iter([])
+
+    def state_dict(self):
+        """Get model state dict (nn.Module compatible)"""
+        if hasattr(self.model, 'model'):
+            return self.model.model.state_dict()
+        return {}
+
+    def load_state_dict(self, state_dict):
+        """Load model state dict (nn.Module compatible)"""
+        if hasattr(self.model, 'model'):
+            self.model.model.load_state_dict(state_dict)
+
     def to(self, device: torch.device):
         """Move model to device"""
         if hasattr(self.model, 'model'):
