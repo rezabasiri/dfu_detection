@@ -1,6 +1,8 @@
 """
 Model Factory for creating detection models
-Unified interface for Faster R-CNN, RetinaNet, and YOLO
+Unified interface for Faster R-CNN and RetinaNet
+
+Note: For YOLO, use train_yolo.py which uses YOLO's native training interface
 """
 
 import yaml
@@ -11,7 +13,6 @@ import torch
 from .base_model import BaseDetector
 from .faster_rcnn import FasterRCNNDetector
 from .retinanet import RetinaNetDetector
-from .yolo import YOLODetector
 
 
 class ModelFactory:
@@ -32,8 +33,7 @@ class ModelFactory:
     # Registry of available models
     MODELS = {
         'faster_rcnn': FasterRCNNDetector,
-        'retinanet': RetinaNetDetector,
-        'yolo': YOLODetector
+        'retinanet': RetinaNetDetector
     }
 
     @classmethod
@@ -48,8 +48,8 @@ class ModelFactory:
         Create detection model
 
         Args:
-            model_name: Model type ('faster_rcnn', 'retinanet', 'yolo')
-            num_classes: Number of classes (including background for Faster R-CNN/RetinaNet)
+            model_name: Model type ('faster_rcnn' or 'retinanet')
+            num_classes: Number of classes (including background)
             config: Configuration dictionary (optional)
             config_path: Path to YAML config file (optional, overrides config dict)
 
@@ -180,14 +180,6 @@ class ModelFactory:
                 'nms_thresh': 0.5,
                 'detections_per_img': 100,
                 'topk_candidates': 1000,
-            },
-            'yolo': {
-                'model_size': 'yolov8m',  # Medium size (good balance)
-                'img_size': 640,
-                'conf_thresh': 0.25,
-                'iou_thresh': 0.45,
-                'max_det': 100,
-                'pretrained': True,
             }
         }
 
@@ -228,7 +220,7 @@ def create_model(model_name: str, num_classes: int, config_path: Optional[str] =
     Convenience function to create a model
 
     Args:
-        model_name: 'faster_rcnn', 'retinanet', or 'yolo'
+        model_name: 'faster_rcnn' or 'retinanet'
         num_classes: Number of classes
         config_path: Optional path to config file
 
