@@ -293,6 +293,12 @@ def main():
     parser.add_argument('--name', type=str, default='dfu_detection',
                         help='Experiment name')
 
+    # Evaluation arguments
+    parser.add_argument('--compute-metrics', action='store_true', default=True,
+                        help='Compute comparable metrics after training (F1, IoU, etc.)')
+    parser.add_argument('--no-metrics', dest='compute_metrics', action='store_false',
+                        help='Skip metric computation after training')
+
     args = parser.parse_args()
 
     # Check if LMDB files exist
@@ -367,6 +373,42 @@ def main():
 
     print("\n✓ Training complete! Results saved to:")
     print(f"  {args.project}/{args.name}")
+
+    # Compute comparable metrics (F1, IoU, Composite Score)
+    if args.compute_metrics:
+        print("\n" + "="*60)
+        print("Computing Comparable Metrics (F1, IoU, Precision, Recall)")
+        print("="*60)
+
+        # Import evaluation function
+        try:
+            from evaluate_yolo import evaluate_yolo_on_lmdb, print_metrics
+
+            # Evaluate best model
+            best_model_path = Path(args.project) / args.name / 'weights' / 'best.pt'
+
+            if best_model_path.exists():
+                print(f"\nEvaluating best model: {best_model_path}\n")
+
+                metrics, _, _ = evaluate_yolo_on_lmdb(
+                    model_path=str(best_model_path),
+                    lmdb_path=args.val_lmdb,
+                    confidence_threshold=0.05,  # Use low threshold for training monitoring
+                    iou_threshold=0.5,
+                    device=args.device
+                )
+
+                print_metrics(metrics)
+
+                print("\nNote: These metrics are directly comparable with Faster R-CNN")
+                print("and RetinaNet results from train_improved.py\n")
+            else:
+                print(f"\nWarning: Best model not found at {best_model_path}")
+                print("Skipping metric computation\n")
+
+        except ImportError:
+            print("\nWarning: Could not import evaluate_yolo.py")
+            print("Skipping metric computation\n")
 
 
 if __name__ == '__main__':
