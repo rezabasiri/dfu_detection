@@ -370,10 +370,15 @@ def train_model(
     # Load datasets - check for LMDB first, fallback to raw images
     log_print(f"\nLoading datasets...")
 
-    # Check if LMDB databases exist
-    data_dir = os.path.dirname(train_csv)
-    train_lmdb = os.path.join(data_dir, "train.lmdb")
-    val_lmdb = os.path.join(data_dir, "val.lmdb")
+    # Check if LMDB paths are specified in config, otherwise use defaults
+    if 'data' in config and 'train_lmdb' in config['data']:
+        train_lmdb = config['data']['train_lmdb']
+        val_lmdb = config['data']['val_lmdb']
+    else:
+        # Default LMDB paths
+        data_dir = os.path.dirname(train_csv)
+        train_lmdb = os.path.join(data_dir, "train.lmdb")
+        val_lmdb = os.path.join(data_dir, "val.lmdb")
 
     use_lmdb = os.path.exists(train_lmdb) and os.path.exists(val_lmdb)
 
