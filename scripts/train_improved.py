@@ -1,7 +1,9 @@
 """
 Improved Training script for DFU detection
 Features: Early stopping, validation loss tracking, detailed logging
-Supports multiple architectures: Faster R-CNN, RetinaNet, YOLO
+Supports: Faster R-CNN, RetinaNet
+
+Note: For YOLO training, use train_yolo.py which uses YOLO's native training interface
 """
 
 import os
@@ -289,10 +291,13 @@ def train_model(
     Main training function with early stopping and detailed logging
 
     Args:
-        model_name: Model architecture ('faster_rcnn', 'retinanet', 'yolo')
+        model_name: Model architecture ('faster_rcnn' or 'retinanet')
         config_path: Path to YAML config file (optional)
         composite_weights: Dict with weights for composite score (optional)
             Keys: 'f1', 'iou', 'recall', 'precision'
+
+    Note:
+        For YOLO training, use train_yolo.py which uses YOLO's native interface
     """
     # Load configuration from YAML if provided (do this BEFORE creating directories)
     config = {}
@@ -490,15 +495,9 @@ def train_model(
     detector.print_model_info()
 
     # Get underlying PyTorch model and move to device
-    # For YOLO, we need to use the detector wrapper to handle training properly
-    # For Faster R-CNN/RetinaNet, we can use the raw model
-    if model_name == 'yolo':
-        model = detector  # Use wrapper for YOLO
-        detector.to(device)
-    else:
-        model = detector.get_model()  # Use raw model for others
-        model.to(device)
-        detector.to(device)
+    model = detector.get_model()
+    model.to(device)
+    detector.to(device)
 
     # Check for existing checkpoints to resume training
     start_epoch = 1
@@ -782,7 +781,7 @@ if __name__ == "__main__":
     # Parse command-line arguments
     parser = argparse.ArgumentParser(description='Train DFU detection model')
     parser.add_argument('--model', type=str, default='faster_rcnn',
-                       choices=['faster_rcnn', 'retinanet', 'yolo'],
+                       choices=['faster_rcnn', 'retinanet'],
                        help='Model architecture to train')
     parser.add_argument('--config', type=str, default=None,
                        help='Path to YAML config file (optional)')

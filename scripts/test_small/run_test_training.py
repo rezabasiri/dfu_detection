@@ -2,6 +2,8 @@
 """
 Run Test Training for All Three Models
 Trains Faster R-CNN, RetinaNet, and YOLOv8 on small test dataset sequentially.
+
+Note: YOLO uses train_yolo.py (native interface), others use train_improved.py
 """
 
 import subprocess
@@ -44,14 +46,31 @@ def train_model(model_config):
 
     print_section(f"Training: {description}")
 
-    # Build command
-    cmd = [
-        sys.executable,
-        'train_improved.py',
-        '--model', model_name,
-        '--config', config_path,
-        '--device', 'cuda' if sys.argv[1:] and sys.argv[1] == '--gpu' else 'cpu'
-    ]
+    # Build command - YOLO uses dedicated script, others use unified script
+    if model_name == 'yolo':
+        # YOLO uses train_yolo.py with native interface
+        cmd = [
+            sys.executable,
+            'train_yolo.py',
+            '--model', 'yolov8n',  # Use nano for fast testing
+            '--train-lmdb', '../data/test_train.lmdb',
+            '--val-lmdb', '../data/test_val.lmdb',
+            '--epochs', '2',
+            '--batch-size', '8',
+            '--img-size', '128',
+            '--device', 'cuda' if sys.argv[1:] and sys.argv[1] == '--gpu' else 'cpu',
+            '--project', '../checkpoints_test',
+            '--name', 'yolo'
+        ]
+    else:
+        # Faster R-CNN and RetinaNet use train_improved.py
+        cmd = [
+            sys.executable,
+            'train_improved.py',
+            '--model', model_name,
+            '--config', config_path,
+            '--device', 'cuda' if sys.argv[1:] and sys.argv[1] == '--gpu' else 'cpu'
+        ]
 
     print(f"Command: {' '.join(cmd)}\n")
 
@@ -117,7 +136,10 @@ def print_summary(results):
 
     print("2. View individual model results:")
     for model in MODELS:
-        checkpoint_path = f"../checkpoints_test/{model['name']}/best_model.pth"
+        if model['name'] == 'yolo':
+            checkpoint_path = f"../checkpoints_test/yolo/weights/best.pt"
+        else:
+            checkpoint_path = f"../checkpoints_test/{model['name']}/best_model.pth"
         print(f"   - {model['name']:<15} {checkpoint_path}")
 
     print("\n3. Check training logs:")
