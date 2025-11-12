@@ -114,17 +114,33 @@ class RetinaNetDetector(BaseDetector):
 
         # Create backbone that outputs multi-scale features
         # For RetinaNet, we need to extract features at multiple scales
+        # We'll extract intermediate feature maps from EfficientNet
         class EfficientNetBackbone(nn.Module):
             def __init__(self, features, out_channels):
                 super().__init__()
                 self.features = features
                 self.out_channels = out_channels
 
+                # EfficientNet stages for multi-scale features
+                # Extract indices for different resolutions
+                # EfficientNet-B0 has 9 layers (0-8), we pick 5 for FPN
+                # Layers: 0=stem, 1-7=MBConv blocks, 8=head
+                self.return_layers = {
+                    '1': '0',  # Early features
+                    '2': '1',  # 1/4 resolution
+                    '3': '2',  # 1/8 resolution
+                    '5': '3',  # 1/16 resolution
+                    '7': '4',  # 1/32 resolution
+                }
+
             def forward(self, x):
-                # Return features as OrderedDict for FPN
-                # RetinaNet expects a dict with string keys
-                features = self.features(x)
-                return {"0": features}
+                # Extract multi-scale features
+                result = {}
+                for idx, layer in enumerate(self.features):
+                    x = layer(x)
+                    if str(idx) in self.return_layers:
+                        result[self.return_layers[str(idx)]] = x
+                return result
 
         backbone = EfficientNetBackbone(features, out_channels)
         backbone.out_channels = out_channels
