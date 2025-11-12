@@ -69,20 +69,26 @@ def create_small_lmdb(source_lmdb, target_lmdb, num_samples, seed=42):
             print(f"Copying {len(selected_indices)} samples to {target_lmdb}...")
 
             for new_idx, old_idx in enumerate(tqdm(selected_indices)):
-                old_key = str(old_idx).encode('utf-8')
+                # Use zero-padded 8-digit format to match source LMDB key format
+                old_key = f"{old_idx:08d}".encode('utf-8')
                 data = source_txn.get(old_key)
 
                 if data is not None:
-                    new_key = str(new_idx).encode('utf-8')
+                    # Also use zero-padded format for target LMDB
+                    new_key = f"{new_idx:08d}".encode('utf-8')
                     target_txn.put(new_key, data)
+                else:
+                    print(f"Warning: Key {old_idx} ({old_key}) not found in source LMDB")
 
-            # Save metadata
+            # Save metadata (match format from create_lmdb.py)
             new_dfu_indices = list(range(len(selected_dfu)))
             new_healthy_indices = list(range(len(selected_dfu), len(selected_indices)))
 
+            # Store __len__ as ASCII string (not pickled!)
+            target_txn.put(b'__len__', str(len(selected_indices)).encode('ascii'))
+            target_txn.put(b'__keys__', pickle.dumps(list(range(len(selected_indices)))))
             target_txn.put(b'__dfu_indices__', pickle.dumps(new_dfu_indices))
             target_txn.put(b'__healthy_indices__', pickle.dumps(new_healthy_indices))
-            target_txn.put(b'__length__', pickle.dumps(len(selected_indices)))
 
             print(f"Saved metadata: {len(new_dfu_indices)} DFU, {len(new_healthy_indices)} healthy")
 

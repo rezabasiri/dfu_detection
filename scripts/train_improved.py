@@ -374,6 +374,15 @@ def train_model(
     if 'data' in config and 'train_lmdb' in config['data']:
         train_lmdb = config['data']['train_lmdb']
         val_lmdb = config['data']['val_lmdb']
+
+        # If paths are relative, resolve them relative to config file directory
+        if config_path and not os.path.isabs(train_lmdb):
+            config_dir = os.path.dirname(os.path.abspath(config_path))
+            train_lmdb = os.path.abspath(os.path.join(config_dir, train_lmdb))
+            val_lmdb = os.path.abspath(os.path.join(config_dir, val_lmdb))
+            log_print(f"Resolved LMDB paths relative to config:")
+            log_print(f"  train_lmdb: {train_lmdb}")
+            log_print(f"  val_lmdb: {val_lmdb}")
     else:
         # Default LMDB paths
         data_dir = os.path.dirname(train_csv)
