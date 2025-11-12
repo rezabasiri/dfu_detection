@@ -22,6 +22,7 @@ import sys
 import time
 import os
 import argparse
+import yaml
 from pathlib import Path
 from datetime import datetime
 
@@ -63,16 +64,34 @@ def train_model(model_config):
 
     # Build command - YOLO uses dedicated script, others use unified script
     if model_name == 'yolo':
+        # Load YOLO config to get training parameters
+        config_file = Path(config_path)
+        if config_file.exists():
+            with open(config_file, 'r') as f:
+                yolo_config = yaml.safe_load(f)
+
+            # Extract parameters from YAML
+            epochs = yolo_config.get('training', {}).get('num_epochs', 2)
+            batch_size = yolo_config.get('training', {}).get('batch_size', 8)
+            img_size = yolo_config.get('training', {}).get('img_size', 128)
+            model_size = yolo_config.get('model', {}).get('model_size', 'yolov8n')
+        else:
+            # Fallback defaults if config not found
+            epochs = 2
+            batch_size = 8
+            img_size = 128
+            model_size = 'yolov8n'
+
         # YOLO uses train_yolo.py with native interface
         cmd = [
             sys.executable,
             'train_yolo.py',
-            '--model', 'yolov8n',  # Use nano for fast testing
+            '--model', model_size,
             '--train-lmdb', '../data/test_train.lmdb',
             '--val-lmdb', '../data/test_val.lmdb',
-            '--epochs', '2',
-            '--batch-size', '8',
-            '--img-size', '128',
+            '--epochs', str(epochs),
+            '--batch-size', str(batch_size),
+            '--img-size', str(img_size),
             '--device', DEVICE,
             '--project', '../checkpoints_test',
             '--name', 'yolo'
