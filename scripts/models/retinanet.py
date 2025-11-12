@@ -6,10 +6,13 @@ Single-stage detector with Focal Loss for handling class imbalance
 import torch
 import torch.nn as nn
 from typing import Dict, List, Optional, Union
+from collections import OrderedDict
 import torchvision
 from torchvision.models.detection import RetinaNet
 from torchvision.models.detection.anchor_utils import AnchorGenerator
+from torchvision.models.detection.backbone_utils import BackboneWithFPN
 from torchvision.ops import sigmoid_focal_loss
+from torchvision.ops.feature_pyramid_network import LastLevelP6P7
 from torchvision.models import (
     efficientnet_b0, efficientnet_b1, efficientnet_b2,
     efficientnet_b3, efficientnet_b4, efficientnet_b5,
@@ -108,42 +111,28 @@ class RetinaNetDetector(BaseDetector):
         weights = "IMAGENET1K_V1" if self.pretrained else None
         efficientnet = efficientnet_fn(weights=weights)
 
-        # Extract feature layers from EfficientNet
-        # EfficientNet has multiple stages - we'll use them for FPN
-        features = efficientnet.features
+        # Extract intermediate feature channels for FPN
+        # EfficientNet-B0 channel progression: 16, 24, 40, 112, 320, 1280
+        # We'll use layers at different strides for multi-scale features
+        in_channels_list = [16, 24, 40, 112, 1280]  # Channels at different stages
+        return_layers = {'1': '0', '2': '1', '3': '2', '5': '3', '8': '4'}  # Layer indices
 
-        # Create backbone that outputs multi-scale features
-        # For RetinaNet, we need to extract features at multiple scales
-        # We'll extract intermediate feature maps from EfficientNet
-        class EfficientNetBackbone(nn.Module):
-            def __init__(self, features, out_channels):
-                super().__init__()
-                self.features = features
-                self.out_channels = out_channels
+        # Create IntermediateLayerGetter to extract multi-scale features
+        from torchvision.models._utils import IntermediateLayerGetter
+        body = IntermediateLayerGetter(efficientnet.features, return_layers=return_layers)
 
-                # EfficientNet stages for multi-scale features
-                # Extract indices for different resolutions
-                # EfficientNet-B0 has 9 layers (0-8), we pick 5 for FPN
-                # Layers: 0=stem, 1-7=MBConv blocks, 8=head
-                self.return_layers = {
-                    '1': '0',  # Early features
-                    '2': '1',  # 1/4 resolution
-                    '3': '2',  # 1/8 resolution
-                    '5': '3',  # 1/16 resolution
-                    '7': '4',  # 1/32 resolution
-                }
+        # Create FPN on top of the backbone
+        # FPN normalizes all feature channels to out_channels_fpn
+        out_channels_fpn = 256  # Standard FPN output channels
+        backbone = BackboneWithFPN(
+            body,
+            return_layers=return_layers,
+            in_channels_list=in_channels_list,
+            out_channels=out_channels_fpn,
+            extra_blocks=LastLevelP6P7(out_channels_fpn, out_channels_fpn),  # Add P6, P7 levels
+        )
 
-            def forward(self, x):
-                # Extract multi-scale features
-                result = {}
-                for idx, layer in enumerate(self.features):
-                    x = layer(x)
-                    if str(idx) in self.return_layers:
-                        result[self.return_layers[str(idx)]] = x
-                return result
-
-        backbone = EfficientNetBackbone(features, out_channels)
-        backbone.out_channels = out_channels
+        backbone.out_channels = out_channels_fpn
 
         return backbone
 
