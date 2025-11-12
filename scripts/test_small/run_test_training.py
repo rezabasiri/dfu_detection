@@ -75,14 +75,20 @@ def train_model(model_config):
             batch_size = yolo_config.get('training', {}).get('batch_size', 8)
             img_size = yolo_config.get('training', {}).get('img_size', 128)
             model_size = yolo_config.get('model', {}).get('model_size', 'yolov8n')
+            save_period = yolo_config.get('checkpoint', {}).get('save_every_n_epochs', 1)
         else:
             # Fallback defaults if config not found
             epochs = 2
             batch_size = 8
             img_size = 128
             model_size = 'yolov8n'
+            save_period = 1
 
         # YOLO uses train_yolo.py with native interface
+        # Note: YOLO saves checkpoints:
+        #   - best.pt: when validation mAP improves (auto)
+        #   - last.pt: every epoch (auto)
+        #   - epochN.pt: every save_period epochs
         cmd = [
             sys.executable,
             'train_yolo.py',
@@ -94,7 +100,8 @@ def train_model(model_config):
             '--img-size', str(img_size),
             '--device', DEVICE,
             '--project', '../checkpoints_test',
-            '--name', 'yolo'
+            '--name', 'yolo',
+            '--save-period', str(save_period)
         ]
     else:
         # Faster R-CNN and RetinaNet use train_improved.py

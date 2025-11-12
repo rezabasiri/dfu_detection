@@ -73,8 +73,13 @@ data:
 
 checkpoint:
   save_dir: ../../checkpoints_test/yolo
-  save_every_n_epochs: 1
+  save_every_n_epochs: 1  # Periodic checkpoint frequency (YOLO default: 10)
   keep_best_only: false
+
+# YOLO saves three types of checkpoints:
+# 1. best.pt - Best model by mAP50-95 (auto)
+# 2. last.pt - Most recent epoch (auto, every epoch)
+# 3. epochN.pt - Periodic checkpoints (every save_every_n_epochs)
 
 notes: |
   YOLOv8-nano (n) for quick testing:
