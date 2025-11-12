@@ -84,17 +84,36 @@ class YOLODetector(BaseDetector):
     def _create_model(self):
         """Create YOLO model"""
 
+        # YOLO needs to know the number of classes at creation time
+        # We can't just load pretrained and change nc - that freezes parameters
+        # Instead, load architecture from YAML and optionally load pretrained weights
+
         if self.pretrained:
-            # Load pretrained COCO weights
+            # Start with pretrained model
             model = YOLO(f"{self.model_size}.pt")
+
+            # For transfer learning with different number of classes:
+            # We need to ensure all parameters are trainable
+            # YOLO automatically handles this during training, but we need to explicitly unfreeze
+            if hasattr(model, 'model'):
+                for param in model.model.parameters():
+                    param.requires_grad = True
+
+                # Update number of classes in the model
+                # This will be used when the detection head is rebuilt during first training step
+                if hasattr(model.model, 'nc'):
+                    model.model.nc = self.yolo_num_classes
+
+                # Also update in the Detect layer if it exists
+                for module in model.model.modules():
+                    if module.__class__.__name__ == 'Detect':
+                        module.nc = self.yolo_num_classes
         else:
             # Load architecture only (no pretrained weights)
             model = YOLO(f"{self.model_size}.yaml")
-
-        # Override number of classes for our dataset
-        # This requires retraining the detection head
-        if hasattr(model, 'model') and hasattr(model.model, 'nc'):
-            model.model.nc = self.yolo_num_classes
+            # Set number of classes in config
+            if hasattr(model, 'model') and hasattr(model.model, 'nc'):
+                model.model.nc = self.yolo_num_classes
 
         return model
 
