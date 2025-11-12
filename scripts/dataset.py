@@ -331,7 +331,7 @@ class DFUDatasetLMDB(Dataset):
 
     def __del__(self):
         """Close LMDB environment when dataset is deleted"""
-        if hasattr(self, 'env'):
+        if hasattr(self, 'env') and self.env is not None:
             self.env.close()
 
 def get_train_transforms(img_size: int = 640) -> A.Compose:
