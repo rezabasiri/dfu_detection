@@ -58,14 +58,14 @@ evaluation:
 data:
   # YOLO uses its own data format (data.yaml)
   # We'll need to create this from our LMDB
-  train_lmdb: ../data/train.lmdb
-  val_lmdb: ../data/val.lmdb
+  train_lmdb: ../../data/train.lmdb
+  val_lmdb: ../../data/val.lmdb
 
   # YOLO data.yaml will be generated dynamically
   # Should contain paths to images and labels in YOLO format
 
 checkpoint:
-  save_dir: ../checkpoints/yolo
+  save_dir: ../../checkpoints/yolo
   save_every_n_epochs: 25
   keep_best_only: false
 
