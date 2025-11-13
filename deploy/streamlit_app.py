@@ -57,8 +57,16 @@ model_path = st.sidebar.text_input("Model path (.pt)", value=default_model_path)
 # CPU option (recommended for Mac)
 run_on_cpu = st.sidebar.checkbox("Force CPU (recommended on Mac)", value=True)
 
+# Image size (IMPORTANT: Must match training!)
+img_size = st.sidebar.selectbox(
+    "Image size (must match model training)",
+    [640, 1024],
+    index=0,  # Default to 640 (for yolov8m)
+    help="Use 640 for yolov8m/s/n, 1024 for yolov8x optimized model"
+)
+
 # Confidence threshold
-conf_threshold = st.sidebar.slider("Confidence threshold", 0.0, 1.0, 0.5, 0.05)
+conf_threshold = st.sidebar.slider("Confidence threshold", 0.0, 1.0, 0.3, 0.05)
 
 # Image upload
 uploaded_image = st.file_uploader("📷 Upload a foot image", type=["jpg", "jpeg", "png"])
@@ -88,11 +96,18 @@ if st.button("🔍 Find DFUs", type="primary"):
         image = Image.open(uploaded_image).convert("RGB")
         image_np = np.array(image)
 
-        # Run inference
+        # Run inference with correct image size
         device = 'cpu' if run_on_cpu else 'cuda'
-        with st.spinner("Running inference..."):
+        with st.spinner(f"Running inference (img_size={img_size})..."):
             try:
-                results = model(image_np, device=device, conf=conf_threshold, verbose=False)
+                # CRITICAL: imgsz must match training size!
+                results = model(
+                    image_np,
+                    imgsz=img_size,  # Match training size (640 or 1024)
+                    device=device,
+                    conf=conf_threshold,
+                    verbose=False
+                )
             except Exception as e:
                 st.error(f"Inference failed: {e}")
                 st.stop()
@@ -180,6 +195,44 @@ st.sidebar.markdown("---")
 st.sidebar.markdown("**Model Info**")
 if os.path.exists(model_path):
     file_size = os.path.getsize(model_path) / (1024 * 1024)  # MB
-    st.sidebar.info(f"Model size: {file_size:.1f} MB")
+    st.sidebar.info(f"📦 Model size: {file_size:.1f} MB")
+
+    # Try to detect model type from architecture
+    try:
+        temp_model = load_model(model_path)
+        # Count parameters (rough detection)
+        total_params = sum(p.numel() for p in temp_model.model.parameters())
+
+        if total_params < 5_000_000:
+            model_type = "yolov8n (nano)"
+        elif total_params < 15_000_000:
+            model_type = "yolov8s (small)"
+        elif total_params < 30_000_000:
+            model_type = "yolov8m (medium) ⚠️"
+        elif total_params < 50_000_000:
+            model_type = "yolov8l (large)"
+        else:
+            model_type = "yolov8x (extra-large)"
+
+        st.sidebar.info(f"🤖 Detected: {model_type}")
+        st.sidebar.caption(f"Parameters: {total_params:,}")
+
+        # Recommendation based on model type
+        if "medium" in model_type:
+            st.sidebar.warning("💡 Use img_size=640 for this model")
+        elif "extra-large" in model_type:
+            st.sidebar.success("💡 Use img_size=1024 for best results")
+
+    except Exception as e:
+        st.sidebar.error(f"Could not read model: {e}")
 else:
-    st.sidebar.warning("Model not loaded")
+    st.sidebar.warning("⚠️ Model not found")
+
+st.sidebar.markdown("---")
+st.sidebar.markdown("""
+**Quick Tips:**
+- yolov8m → Use 640px
+- yolov8x → Use 1024px
+- Lower confidence = more detections
+- Mac CPU: ~5-10 sec per image
+""")
