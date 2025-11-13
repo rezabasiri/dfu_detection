@@ -56,13 +56,13 @@ evaluation:
   iou_threshold: 0.5
 
 data:
-  train_lmdb: ../data/train.lmdb
-  val_lmdb: ../data/val.lmdb
+  train_lmdb: ../../data/train.lmdb
+  val_lmdb: ../../data/val.lmdb
   balanced_sampling: true
   balanced_ratio: 0.5
 
 checkpoint:
-  save_dir: ../checkpoints/retinanet
+  save_dir: ../../checkpoints/retinanet
   save_every_n_epochs: 25
   keep_best_only: false
 
