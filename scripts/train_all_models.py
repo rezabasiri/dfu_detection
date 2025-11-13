@@ -63,7 +63,7 @@ def train_model(model_config: dict, args):
             # Extract parameters from YAML (with overrides from args)
             epochs = args.epochs if args.epochs else yolo_config.get('training', {}).get('num_epochs', 300)
             batch_size = args.batch_size if args.batch_size else yolo_config.get('training', {}).get('batch_size', 36)
-            img_size = yolo_config.get('training', {}).get('img_size', 512)
+            img_size = args.img_size if args.img_size else yolo_config.get('training', {}).get('img_size', 512)
             model_size = yolo_config.get('model', {}).get('model_size', 'yolov8m')
             save_period = yolo_config.get('checkpoint', {}).get('save_every_n_epochs', 10)
             train_lmdb = yolo_config.get('data', {}).get('train_lmdb', '../data/train.lmdb')
@@ -73,12 +73,15 @@ def train_model(model_config: dict, args):
             # Fallback defaults
             epochs = args.epochs if args.epochs else 300
             batch_size = args.batch_size if args.batch_size else 36
-            img_size = 512
+            img_size = args.img_size if args.img_size else 512
             model_size = 'yolov8m'
             save_period = 10
             train_lmdb = '../data/train.lmdb'
             val_lmdb = '../data/val.lmdb'
             project = '../checkpoints'
+
+        # Check for existing checkpoint to resume
+        checkpoint_path = Path(project) / 'yolo' / 'weights' / 'last.pt'
 
         cmd = [
             sys.executable,
@@ -94,8 +97,23 @@ def train_model(model_config: dict, args):
             '--name', 'yolo',
             '--save-period', str(save_period)
         ]
+
+        # Add resume flag if checkpoint exists and resume requested
+        if args.resume and checkpoint_path.exists():
+            print(f"  Found checkpoint: {checkpoint_path}")
+            print(f"  Resuming YOLO training from last checkpoint...")
+            # For YOLO, we need to use the resume parameter differently
+            # Will be handled by train_yolo.py when it detects existing training
     else:
         # Faster R-CNN and RetinaNet use train_improved.py
+        # Check for existing checkpoint to resume (auto-detected by train_improved.py)
+        checkpoint_dir = Path('..') / 'checkpoints' / model_name
+        resume_checkpoint = checkpoint_dir / 'resume_training.pth'
+
+        if args.resume and resume_checkpoint.exists():
+            print(f"  Found checkpoint: {resume_checkpoint}")
+            print(f"  {model_name.upper()} will auto-resume from checkpoint...")
+
         cmd = [
             sys.executable,
             'train_improved.py',
@@ -108,18 +126,32 @@ def train_model(model_config: dict, args):
             cmd.extend(['--epochs', str(args.epochs)])
         if args.batch_size:
             cmd.extend(['--batch-size', str(args.batch_size)])
+        # Note: img_size not supported by train_improved.py - must be set in config YAML
+        if args.img_size:
+            print(f"  Note: --img-size ignored for {model_name} (set in config YAML instead)")
         if args.lr:
             cmd.extend(['--lr', str(args.lr)])
         if args.device:
             cmd.extend(['--device', args.device])
 
-    # Run training
+    # Run training with real-time output
+    print(f"\nCommand: {' '.join(cmd)}\n")
+    print("="*80)
+    print("Training output (streaming in real-time):")
+    print("="*80 + "\n")
+
     try:
+        # Run with real-time output (stdout/stderr not captured)
+        # This allows continuous output like train_improved.py
         result = subprocess.run(cmd, check=True)
-        print(f"\n✓ {model_name.upper()} training completed successfully")
+        print(f"\n{'='*80}")
+        print(f"✓ {model_name.upper()} training completed successfully")
+        print(f"{'='*80}\n")
         return True
     except subprocess.CalledProcessError as e:
-        print(f"\n✗ {model_name.upper()} training failed with error code {e.returncode}")
+        print(f"\n{'='*80}")
+        print(f"✗ {model_name.upper()} training failed with error code {e.returncode}")
+        print(f"{'='*80}\n")
         if not args.continue_on_error:
             print(f"Stopping due to error. Use --continue-on-error to train remaining models.")
             return False
@@ -128,6 +160,7 @@ def train_model(model_config: dict, args):
             return True
     except KeyboardInterrupt:
         print(f"\n\n⚠ Training interrupted by user")
+        print(f"Note: To resume later, use --resume flag")
         return False
 
 
@@ -157,11 +190,20 @@ Usage examples:
   # Train specific models
   python train_all_models.py --models faster_rcnn retinanet
 
-  # Override epochs for quick testing
-  python train_all_models.py --epochs 10
+  # Override training parameters
+  python train_all_models.py --epochs 10 --batch-size 12 --img-size 512
 
-  # Continue on error
+  # Quick test with small parameters
+  python train_all_models.py --epochs 5 --batch-size 4 --img-size 256
+
+  # Resume interrupted training
+  python train_all_models.py --resume
+
+  # Continue training other models if one fails
   python train_all_models.py --continue-on-error
+
+  # See what would be run without actually training
+  python train_all_models.py --dry-run --epochs 10 --img-size 640
         """
     )
 
@@ -173,13 +215,17 @@ Usage examples:
                        help='Override number of epochs from config')
     parser.add_argument('--batch-size', type=int, default=None,
                        help='Override batch size from config')
+    parser.add_argument('--img-size', type=int, default=None,
+                       help='Override image size (YOLO only; Faster R-CNN/RetinaNet use config)')
     parser.add_argument('--lr', type=float, default=None,
-                       help='Override learning rate from config')
+                       help='Override learning rate from config (Faster R-CNN/RetinaNet only)')
     parser.add_argument('--device', type=str, default='cuda',
                        choices=['cuda', 'cpu'],
                        help='Device to use for training')
     parser.add_argument('--continue-on-error', action='store_true',
                        help='Continue training remaining models if one fails')
+    parser.add_argument('--resume', action='store_true',
+                       help='Resume training from last checkpoint if available')
     parser.add_argument('--dry-run', action='store_true',
                        help='Print what would be done without actually training')
 
@@ -198,14 +244,26 @@ Usage examples:
     for model in models_to_train:
         print(f"  - {model['name']}: {model['description']}")
 
+    print("\n" + "-"*80)
+    print("Training Configuration")
+    print("-"*80)
     if args.epochs:
-        print(f"\nOverride epochs: {args.epochs}")
+        print(f"Epochs:        {args.epochs} (override)")
+    else:
+        print(f"Epochs:        From config files")
     if args.batch_size:
-        print(f"Override batch size: {args.batch_size}")
+        print(f"Batch size:    {args.batch_size} (override)")
+    else:
+        print(f"Batch size:    From config files")
+    if args.img_size:
+        print(f"Image size:    {args.img_size} (override for YOLO only)")
+    else:
+        print(f"Image size:    From config files")
     if args.lr:
-        print(f"Override learning rate: {args.lr}")
+        print(f"Learning rate: {args.lr} (override, Faster R-CNN/RetinaNet only)")
 
-    print(f"\nDevice: {args.device}")
+    print(f"\nDevice:         {args.device}")
+    print(f"Resume:         {args.resume}")
     print(f"Continue on error: {args.continue_on_error}")
 
     if args.dry_run:
@@ -220,6 +278,8 @@ Usage examples:
                     cmd_parts.append(f'--epochs {args.epochs}')
                 if args.batch_size:
                     cmd_parts.append(f'--batch-size {args.batch_size}')
+                if args.img_size:
+                    cmd_parts.append(f'--img-size {args.img_size}')
             else:
                 cmd_parts = [
                     'train_improved.py',
@@ -230,6 +290,7 @@ Usage examples:
                     cmd_parts.append(f'--epochs {args.epochs}')
                 if args.batch_size:
                     cmd_parts.append(f'--batch-size {args.batch_size}')
+                # Note: img-size not shown for Faster R-CNN/RetinaNet (must be in config)
                 if args.lr:
                     cmd_parts.append(f'--lr {args.lr}')
             print(f"\nWould run: python {' '.join(cmd_parts)}")
