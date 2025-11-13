@@ -55,6 +55,20 @@ class RetinaNetDetector(BaseDetector):
         "efficientnet_b7": (efficientnet_b7, 2560),
     }
 
+    # Channel configurations for FPN input
+    # Format: [channels at layer 2, layer 3, layer 5]
+    # These are the intermediate feature channels used for multi-scale detection
+    BACKBONE_FPN_CHANNELS = {
+        "efficientnet_b0": [24, 40, 112],
+        "efficientnet_b1": [24, 40, 112],
+        "efficientnet_b2": [24, 48, 120],
+        "efficientnet_b3": [32, 48, 136],
+        "efficientnet_b4": [32, 56, 160],
+        "efficientnet_b5": [40, 64, 176],
+        "efficientnet_b6": [40, 72, 200],
+        "efficientnet_b7": [48, 80, 224],
+    }
+
     def __init__(self, num_classes: int, config: dict):
         """
         Initialize RetinaNet detector
@@ -112,10 +126,10 @@ class RetinaNetDetector(BaseDetector):
         efficientnet = efficientnet_fn(weights=weights)
 
         # Extract intermediate feature channels for FPN
-        # EfficientNet-B0 channel progression: 16, 24, 40, 112, 320, 1280
+        # Use correct channel counts for this specific EfficientNet variant
         # We'll use layers at different strides for multi-scale features
         # Using 3 levels (P3, P4, P5) instead of 5 to save memory
-        in_channels_list = [24, 40, 112]  # Channels at layers 2, 3, 5
+        in_channels_list = self.BACKBONE_FPN_CHANNELS[self._backbone_name]
         return_layers = {'2': '0', '3': '1', '5': '2'}  # Layer indices
 
         # Create IntermediateLayerGetter to extract multi-scale features
