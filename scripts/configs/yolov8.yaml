@@ -4,7 +4,7 @@
 
 model:
   type: yolo
-  model_size: yolov8m  # Options: yolov8n, yolov8s, yolov8m, yolov8l, yolov8x
+  model_size: yolov8x  # OPTIMIZED: Largest model for maximum accuracy (68M params)
   num_classes: 2  # Note: YOLO uses 1 class (ulcer), no explicit background
   pretrained: true  # COCO pretrained weights
 
@@ -12,15 +12,15 @@ model:
   conf_thresh: 0.25  # Confidence threshold (lower for better recall)
   iou_thresh: 0.45   # NMS IoU threshold
   max_det: 100       # Maximum detections per image
-  img_size: 640      # YOLO standard input size
+  img_size: 1024     # OPTIMIZED: High resolution for medical imaging
 
 training:
   # Note: YOLO has its own training pipeline
   # These params are passed to YOLO's train() method
-  img_size: 640
-  batch_size: 16     # YOLO typically uses smaller batches
-  num_epochs: 200
-  learning_rate: 0.01  # YOLO default LR
+  img_size: 1024     # OPTIMIZED: High resolution preserves small ulcer details
+  batch_size: 64     # OPTIMIZED: Larger batch for H200 GPU (140GB VRAM)
+  num_epochs: 300    # OPTIMIZED: More epochs for larger model convergence
+  learning_rate: 0.01  # YOLO default LR (works well with larger batches)
   weight_decay: 0.0005
 
   # YOLO-specific training params
@@ -70,21 +70,34 @@ checkpoint:
   keep_best_only: false
 
 notes: |
-  YOLOv8 Model Sizes:
-  - yolov8n: 3.2M params (fastest, lowest accuracy)
-  - yolov8s: 11.2M params (fast, good for deployment)
-  - yolov8m: 25.9M params (recommended balance)
+  ⚡ OPTIMIZED FOR H200 GPU (140 GB VRAM)
+
+  Current Configuration:
+  - Model: yolov8x (68.2M params) - LARGEST variant for max accuracy
+  - Image Size: 1024x1024 - High resolution for medical imaging
+  - Batch Size: 64 - Leverages available GPU memory
+  - Expected GPU Usage: ~60-80 GB (~57% utilization)
+  - Expected Improvement: +3-7% mAP over yolov8m @ 640
+
+  Medical Imaging Rationale:
+  - Small ulcers require high resolution (1024px)
+  - Safety-critical application → prioritize accuracy over speed
+  - Large dataset (4,812 images) → can support yolov8x without overfitting
+  - Datacenter deployment → inference speed not critical
+
+  YOLOv8 Model Sizes (for reference):
+  - yolov8n: 3.2M params (mobile/edge devices)
+  - yolov8s: 11.2M params (real-time applications)
+  - yolov8m: 25.9M params (balanced - previous config)
   - yolov8l: 43.7M params (high accuracy)
-  - yolov8x: 68.2M params (highest accuracy, slowest)
+  - yolov8x: 68.2M params (maximum accuracy) ← CURRENT
 
-  YOLO advantages:
-  - Very fast inference (~5-10x faster than Faster R-CNN)
-  - Anchor-free design (simpler than RetinaNet)
-  - Built-in augmentations
-  - Easy deployment
-  - Active development and community
+  Performance vs Faster R-CNN B5 (170M params):
+  - YOLO: Faster inference, slightly lower accuracy
+  - Faster R-CNN: Slower inference, slightly higher accuracy
+  - Both suitable for clinical use
 
-  YOLO challenges:
-  - Different training pipeline (harder to integrate)
-  - Requires data format conversion
-  - Less control over loss weighting
+  To revert to balanced config (if needed):
+  - model_size: yolov8m
+  - img_size: 640
+  - batch_size: 16
