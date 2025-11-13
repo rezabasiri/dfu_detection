@@ -66,19 +66,26 @@ def train_model(model_config: dict, args):
             img_size = args.img_size if args.img_size else yolo_config.get('training', {}).get('img_size', 512)
             model_size = yolo_config.get('model', {}).get('model_size', 'yolov8m')
             save_period = yolo_config.get('checkpoint', {}).get('save_every_n_epochs', 10)
-            train_lmdb = yolo_config.get('data', {}).get('train_lmdb', '../data/train.lmdb')
-            val_lmdb = yolo_config.get('data', {}).get('val_lmdb', '../data/val.lmdb')
-            project = yolo_config.get('checkpoint', {}).get('save_dir', '../checkpoints/yolo').rsplit('/', 1)[0]
+
+            # Resolve paths relative to config file location (not current directory)
+            config_dir = config_file.parent.absolute()
+            train_lmdb_rel = yolo_config.get('data', {}).get('train_lmdb', '../data/train.lmdb')
+            val_lmdb_rel = yolo_config.get('data', {}).get('val_lmdb', '../data/val.lmdb')
+            project_rel = yolo_config.get('checkpoint', {}).get('save_dir', '../checkpoints/yolo').rsplit('/', 1)[0]
+
+            train_lmdb = str((config_dir / train_lmdb_rel).resolve())
+            val_lmdb = str((config_dir / val_lmdb_rel).resolve())
+            project = str((config_dir / project_rel).resolve())
         else:
-            # Fallback defaults
+            # Fallback defaults (resolve relative to current directory)
             epochs = args.epochs if args.epochs else 300
             batch_size = args.batch_size if args.batch_size else 36
             img_size = args.img_size if args.img_size else 512
             model_size = 'yolov8m'
             save_period = 10
-            train_lmdb = '../data/train.lmdb'
-            val_lmdb = '../data/val.lmdb'
-            project = '../checkpoints'
+            train_lmdb = str((Path('../data/train.lmdb').resolve()))
+            val_lmdb = str((Path('../data/val.lmdb').resolve()))
+            project = str((Path('../checkpoints').resolve()))
 
         # Check for existing checkpoint to resume
         checkpoint_path = Path(project) / 'yolo' / 'weights' / 'last.pt'
