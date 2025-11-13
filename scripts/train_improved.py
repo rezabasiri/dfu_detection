@@ -321,12 +321,19 @@ def train_model(
         config = load_config(config_path)
 
         # Extract training parameters from config (override function defaults)
+        # NOTE: Only use config values if parameters are at their defaults (not overridden by CLI)
         if 'training' in config:
             train_config = config['training']
-            img_size = train_config.get('img_size', img_size)
-            batch_size = train_config.get('batch_size', batch_size)
-            num_epochs = train_config.get('num_epochs', num_epochs)
-            learning_rate = train_config.get('learning_rate', learning_rate)
+            # Only apply config if parameter is at default value
+            if img_size == 640:  # default
+                img_size = train_config.get('img_size', img_size)
+            if batch_size == 8:  # default
+                batch_size = train_config.get('batch_size', batch_size)
+            if num_epochs == 50:  # default
+                num_epochs = train_config.get('num_epochs', num_epochs)
+            if learning_rate == 0.001:  # default
+                learning_rate = train_config.get('learning_rate', learning_rate)
+            # These are less commonly overridden, so always use config if available
             use_amp = train_config.get('use_amp', use_amp)
             max_grad_norm = train_config.get('max_grad_norm', max_grad_norm)
             early_stopping_patience = train_config.get('early_stopping_patience', early_stopping_patience)
