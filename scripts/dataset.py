@@ -352,15 +352,17 @@ def get_train_transforms(img_size: int = 640) -> A.Compose:
         A.LongestMaxSize(max_size=img_size),
         A.PadIfNeeded(min_height=img_size, min_width=img_size, border_mode=0),
 
-        # Geometric transforms - FURTHER REDUCED to preserve boxes
-        A.HorizontalFlip(p=0.25),
-        A.VerticalFlip(p=0.25),
-        A.Perspective(scale=(0.05, 0.08), p=0.2),  # REDUCED probability
+        # Geometric transforms - EXTREMELY CONSERVATIVE to prevent NaN losses
+        A.HorizontalFlip(p=0.3),
+        A.VerticalFlip(p=0.3),
+        # Perspective and Affine transforms SIGNIFICANTLY REDUCED
+        # These were causing boxes to become degenerate or out-of-bounds
+        A.Perspective(scale=(0.02, 0.05), p=0.1),  # Minimal distortion, low probability
         A.Affine(
-            scale=(0.95, 1.05),  # FURTHER REDUCED - minimal zoom
-            translate_percent=(-0.05, 0.05),  # FURTHER REDUCED - minimal shift
-            rotate=(-40, 40),
-            p=0.3  # REDUCED from 0.5
+            scale=(0.98, 1.02),  # Minimal zoom (reduced from 0.95-1.05)
+            translate_percent=(-0.02, 0.02),  # Minimal shift (reduced from -0.05 to 0.05)
+            rotate=(-20, 20),  # Reduced rotation (from -40 to 40)
+            p=0.2  # Reduced probability
         ),
 
         # Color augmentations (strong - simulates different cameras, lighting, skin tones)
@@ -446,16 +448,40 @@ def collate_fn(batch):
     """
     Custom collate function for DataLoader
     Handles batches with varying number of boxes
+    Validates boxes to prevent NaN losses
     """
     images = []
     targets = []
-    
+
     for image, target in batch:
+        # Validate and clean boxes
+        boxes = target['boxes']
+        labels = target['labels']
+
+        if len(boxes) > 0:
+            # Remove degenerate boxes (width or height <= 0)
+            widths = boxes[:, 2] - boxes[:, 0]
+            heights = boxes[:, 3] - boxes[:, 1]
+            valid_mask = (widths > 1.0) & (heights > 1.0)
+
+            if valid_mask.sum() > 0:
+                # Keep only valid boxes
+                boxes = boxes[valid_mask]
+                labels = labels[valid_mask]
+                target['boxes'] = boxes
+                target['labels'] = labels
+                target['area'] = widths[valid_mask] * heights[valid_mask]
+            else:
+                # All boxes invalid - make empty
+                target['boxes'] = torch.zeros((0, 4), dtype=torch.float32)
+                target['labels'] = torch.zeros(0, dtype=torch.int64)
+                target['area'] = torch.zeros(0, dtype=torch.float32)
+
         images.append(image)
         targets.append(target)
-    
+
     images = torch.stack(images, dim=0)
-    
+
     return images, targets
 
 if __name__ == "__main__":
