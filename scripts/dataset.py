@@ -413,17 +413,14 @@ def get_train_transforms(img_size: int = 640) -> A.Compose:
             p=0.05  # VERY LOW probability to avoid losing boxes
         ),
         
-        # CROP AUGMENTATIONS DISABLED
-        # These were causing NaN losses by removing all bounding boxes from DFU images
-        # Even "safe" crops with low probability can make boxes too small or barely visible,
-        # causing them to be filtered out by min_visibility/min_area thresholds.
-        # When all boxes are removed from a DFU image, loss computation fails -> NaN
-        #
-        # A.OneOf([
-        #     A.AtLeastOneBBoxRandomCrop(height=img_size * 0.50, width=img_size * 0.50, p=1.0),
-        #     A.BBoxSafeRandomCrop(erosion_rate=0.1, p=1.0),
-        #     A.RandomSizedBBoxSafeCrop(height=img_size, width=img_size, erosion_rate=0.2, p=1.0),
-        # ], p=0.0),  # DISABLED - was causing NaN losses at epoch 26+
+        # CROP AUGMENTATIONS - Conservative BBoxSafeRandomCrop only
+        # BBoxSafeRandomCrop is the safest option - ensures ALL boxes remain after crop
+        # Using very low probability (5%) and low erosion_rate (0.05) to minimize risk
+        # If NaN losses return, disable this by setting p=0.0
+        A.BBoxSafeRandomCrop(
+            erosion_rate=0.05,  # Very conservative - minimal cropping
+            p=0.05  # Only 5% of images (reduced from 20%)
+        )
 
         ToTensorV2()
     ], bbox_params=A.BboxParams(
