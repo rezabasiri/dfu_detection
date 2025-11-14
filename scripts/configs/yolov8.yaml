@@ -1,38 +1,40 @@
-# YOLOv8 Configuration
-# Single-stage detector with anchor-free design
-# Fastest inference, good balance of speed and accuracy
+# YOLOv8m Configuration - BALANCED
+# Optimized: batch_size=32, epochs=300 for better convergence
 
 model:
   type: yolo
-  model_size: yolov8x  # OPTIMIZED: Largest model for maximum accuracy (68M params)
-  num_classes: 2  # Note: YOLO uses 1 class (ulcer), no explicit background
-  pretrained: true  # COCO pretrained weights
+  model_size: yolov8m  # 26M params - good balance
+  num_classes: 2
+  pretrained: true
 
   # Detection thresholds
-  conf_thresh: 0.25  # Confidence threshold (lower for better recall)
-  iou_thresh: 0.45   # NMS IoU threshold
-  max_det: 100       # Maximum detections per image
-  img_size: 1024     # OPTIMIZED: High resolution for medical imaging
+  conf_thresh: 0.25
+  iou_thresh: 0.45
+  max_det: 100
+  img_size: 640
 
 training:
-  # Note: YOLO has its own training pipeline
-  # These params are passed to YOLO's train() method
-  img_size: 1024     # OPTIMIZED: High resolution preserves small ulcer details
-  batch_size: 64     # OPTIMIZED: Larger batch for H200 GPU (140GB VRAM)
-  num_epochs: 300    # OPTIMIZED: More epochs for larger model convergence
-  learning_rate: 0.01  # YOLO default LR (works well with larger batches)
+  img_size: 640
+  batch_size: 32     # Optimized: Better than 16 (more stable) or 64 (too smooth)
+  num_epochs: 300    # Increased for better convergence
+  learning_rate: 0.01
   weight_decay: 0.0005
 
   # YOLO-specific training params
-  optimizer: auto    # YOLO auto-selects optimizer
+  optimizer: auto
   warmup_epochs: 3
-  close_mosaic: 10   # Disable mosaic augmentation last N epochs
+  close_mosaic: 10
+
+  # Loss weights (adjust importance of each component)
+  box_loss_weight: 7.5   # Box regression loss (localization accuracy)
+  cls_loss_weight: 1.0   # Classification loss (INCREASED from 0.5 for better class discrimination)
+  dfl_loss_weight: 1.5   # Distribution Focal Loss (box refinement)
 
   # Augmentation (YOLO built-in)
   hsv_h: 0.015
   hsv_s: 0.7
   hsv_v: 0.4
-  degrees: 0.0       # Rotation
+  degrees: 0.0
   translate: 0.1
   scale: 0.5
   shear: 0.0
@@ -42,62 +44,31 @@ training:
   mosaic: 1.0
   mixup: 0.0
 
-  # Composite weights for evaluation (YOLO trains with own loss)
+  # Composite weights for evaluation
   composite_weights:
     f1: 0.15
     iou: 0.20
     recall: 0.50
     precision: 0.15
 
-  early_stopping_patience: 50  # YOLO uses patient early stopping
+  early_stopping_patience: 50
 
 evaluation:
   confidence_threshold: 0.25
   iou_threshold: 0.5
 
 data:
-  # YOLO uses its own data format (data.yaml)
-  # We'll need to create this from our LMDB
   train_lmdb: ../../data/train.lmdb
   val_lmdb: ../../data/val.lmdb
-
-  # YOLO data.yaml will be generated dynamically
-  # Should contain paths to images and labels in YOLO format
 
 checkpoint:
   save_dir: ../../checkpoints/yolo
   save_every_n_epochs: 25
   keep_best_only: false
 
-notes: |
-  ⚡ OPTIMIZED FOR H200 GPU (140 GB VRAM)
-
-  Current Configuration:
-  - Model: yolov8x (68.2M params) - LARGEST variant for max accuracy
-  - Image Size: 1024x1024 - High resolution for medical imaging
-  - Batch Size: 64 - Leverages available GPU memory
-  - Expected GPU Usage: ~60-80 GB (~57% utilization)
-  - Expected Improvement: +3-7% mAP over yolov8m @ 640
-
-  Medical Imaging Rationale:
-  - Small ulcers require high resolution (1024px)
-  - Safety-critical application → prioritize accuracy over speed
-  - Large dataset (4,812 images) → can support yolov8x without overfitting
-  - Datacenter deployment → inference speed not critical
-
-  YOLOv8 Model Sizes (for reference):
-  - yolov8n: 3.2M params (mobile/edge devices)
-  - yolov8s: 11.2M params (real-time applications)
-  - yolov8m: 25.9M params (balanced - previous config)
-  - yolov8l: 43.7M params (high accuracy)
-  - yolov8x: 68.2M params (maximum accuracy) ← CURRENT
-
-  Performance vs Faster R-CNN B5 (170M params):
-  - YOLO: Faster inference, slightly lower accuracy
-  - Faster R-CNN: Slower inference, slightly higher accuracy
-  - Both suitable for clinical use
-
-  To revert to balanced config (if needed):
-  - model_size: yolov8m
-  - img_size: 640
-  - batch_size: 16
+# Quick reference:
+# - Model: yolov8m @ 640px
+# - GPU usage: ~15-20 GB
+# - Training time: ~10-12 hours (300 epochs)
+# - Expected mAP: ~0.72-0.77
+# - batch_size=32: Sweet spot between stability and speed

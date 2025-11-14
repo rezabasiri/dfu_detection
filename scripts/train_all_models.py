@@ -67,6 +67,11 @@ def train_model(model_config: dict, args):
             model_size = yolo_config.get('model', {}).get('model_size', 'yolov8m')
             save_period = yolo_config.get('checkpoint', {}).get('save_every_n_epochs', 10)
 
+            # Loss weights (optional, defaults in train_yolo.py if not specified)
+            box_loss = yolo_config.get('training', {}).get('box_loss_weight', None)
+            cls_loss = yolo_config.get('training', {}).get('cls_loss_weight', None)
+            dfl_loss = yolo_config.get('training', {}).get('dfl_loss_weight', None)
+
             # Resolve paths relative to config file location (not current directory)
             config_dir = config_file.parent.absolute()
             train_lmdb_rel = yolo_config.get('data', {}).get('train_lmdb', '../data/train.lmdb')
@@ -104,6 +109,14 @@ def train_model(model_config: dict, args):
             '--name', 'yolo',
             '--save-period', str(save_period)
         ]
+
+        # Add loss weights if specified in config
+        if box_loss is not None:
+            cmd.extend(['--box-loss', str(box_loss)])
+        if cls_loss is not None:
+            cmd.extend(['--cls-loss', str(cls_loss)])
+        if dfl_loss is not None:
+            cmd.extend(['--dfl-loss', str(dfl_loss)])
 
         # Add resume flag if checkpoint exists and resume requested
         if args.resume and checkpoint_path.exists():

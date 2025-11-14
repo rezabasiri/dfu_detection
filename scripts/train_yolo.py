@@ -171,6 +171,9 @@ def train_yolo(
     name='dfu_detection',
     pretrained=True,
     save_period=10,
+    box_loss=7.5,
+    cls_loss=0.5,
+    dfl_loss=1.5,
     **kwargs
 ):
     """
@@ -187,6 +190,9 @@ def train_yolo(
         name: Experiment name
         pretrained: Use COCO pretrained weights
         save_period: Save checkpoint every N epochs (best.pt and last.pt always saved)
+        box_loss: Box regression loss weight (default: 7.5)
+        cls_loss: Classification loss weight (default: 0.5)
+        dfl_loss: Distribution Focal Loss weight (default: 1.5)
         **kwargs: Additional YOLO training arguments
     """
 
@@ -200,6 +206,10 @@ def train_yolo(
     print(f"Image size: {img_size}")
     print(f"Device: {device}")
     print(f"Pretrained: {pretrained}")
+    print(f"\nLoss Weights:")
+    print(f"  Box loss: {box_loss}")
+    print(f"  Cls loss: {cls_loss}")
+    print(f"  DFL loss: {dfl_loss}")
     print("="*60 + "\n")
 
     # Initialize YOLO model
@@ -236,9 +246,9 @@ def train_yolo(
         warmup_epochs=3.0,
         warmup_momentum=0.8,
         warmup_bias_lr=0.1,
-        box=7.5,  # Box loss weight
-        cls=0.5,  # Classification loss weight
-        dfl=1.5,  # DFL loss weight
+        box=box_loss,  # Box loss weight (from config or args)
+        cls=cls_loss,  # Classification loss weight (from config or args)
+        dfl=dfl_loss,  # DFL loss weight (from config or args)
         save=True,  # Save checkpoints
         save_period=save_period,  # Save checkpoint every N epochs
         val=True,  # Validate during training
@@ -296,6 +306,14 @@ def main():
                         help='Experiment name')
     parser.add_argument('--save-period', type=int, default=10,
                         help='Save checkpoint every N epochs (default: 10). Note: best.pt and last.pt are always saved.')
+
+    # Loss weight arguments
+    parser.add_argument('--box-loss', type=float, default=7.5,
+                        help='Box regression loss weight (default: 7.5)')
+    parser.add_argument('--cls-loss', type=float, default=0.5,
+                        help='Classification loss weight (default: 0.5)')
+    parser.add_argument('--dfl-loss', type=float, default=1.5,
+                        help='Distribution Focal Loss weight (default: 1.5)')
 
     # Evaluation arguments
     parser.add_argument('--compute-metrics', action='store_true', default=True,
@@ -373,7 +391,10 @@ def main():
         project=args.project,
         name=args.name,
         pretrained=args.pretrained,
-        save_period=args.save_period  # Pass save_period to YOLO
+        save_period=args.save_period,  # Pass save_period to YOLO
+        box_loss=args.box_loss,        # Pass loss weights
+        cls_loss=args.cls_loss,
+        dfl_loss=args.dfl_loss
     )
 
     print("\n✓ Training complete! Results saved to:")
