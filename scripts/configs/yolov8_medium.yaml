@@ -1,9 +1,9 @@
-# YOLOv8m Configuration - BALANCED (Backup)
-# Use this if yolov8x is too slow or uses too much memory
+# YOLOv8m Configuration - BALANCED
+# Optimized: batch_size=32, epochs=300 for better convergence
 
 model:
   type: yolo
-  model_size: yolov8m  # 26M params - balanced option
+  model_size: yolov8m  # 26M params - good balance
   num_classes: 2
   pretrained: true
 
@@ -15,8 +15,8 @@ model:
 
 training:
   img_size: 640
-  batch_size: 16
-  num_epochs: 200
+  batch_size: 32     # Optimized: Better than 16 (more stable) or 64 (too smooth)
+  num_epochs: 300    # Increased for better convergence
   learning_rate: 0.01
   weight_decay: 0.0005
 
@@ -57,12 +57,12 @@ data:
   val_lmdb: ../../data/val.lmdb
 
 checkpoint:
-  save_dir: ../../checkpoints/yolo_m
+  save_dir: ../../checkpoints/yolo_m32  # Separate dir for batch_size=32 training
   save_every_n_epochs: 25
   keep_best_only: false
 
 # Quick reference:
-# - GPU usage: ~10-15 GB
-# - Training time: ~8 hours (200 epochs)
-# - Expected mAP: ~0.70-0.75
-# - Use if: yolov8x OOM or need faster training
+# - GPU usage: ~15-20 GB
+# - Training time: ~10-12 hours (300 epochs)
+# - Expected mAP: ~0.72-0.77
+# - batch_size=32: Sweet spot between stability and speed
