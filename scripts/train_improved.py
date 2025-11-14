@@ -86,13 +86,19 @@ def cleanup_memory():
 cleanup_memory()
 
 def cleanup_epoch():
-    """Lightweight cleanup after each epoch to prevent memory accumulation"""
-    # Clear Python garbage
+    """Aggressive cleanup after each epoch to prevent memory accumulation"""
+    # Ensure all CUDA operations are complete
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+
+    # Multiple rounds of garbage collection (more thorough)
+    gc.collect()
     gc.collect()
 
     # Clear CUDA cache
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
+        torch.cuda.synchronize()  # Ensure cleanup is complete
 
 def load_config(config_path: str) -> dict:
     """
@@ -206,6 +212,10 @@ def validate(model, data_loader, device, compute_detection_metrics=True, confide
         pbar.set_postfix({"val_loss": f"{loss_meter.avg:.4f}"})
 
     val_loss = loss_meter.avg
+
+    # Clean up after loss computation before metrics computation
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
     # Second pass: compute detection metrics (F1, IoU)
     metrics = {'f1_score': 0.0, 'mean_iou': 0.0, 'precision': 0.0, 'recall': 0.0}
@@ -678,6 +688,11 @@ def train_model(
         # IMPORTANT: Validate again at 0.5 threshold for composite score calculation
         # This ensures composite score is comparable across epochs (fixed threshold)
         _, val_metrics = validate(model, val_loader, device, compute_detection_metrics=True, confidence_threshold=0.5)
+
+        # Aggressive cleanup after validation to free GPU memory before next training epoch
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+            torch.cuda.empty_cache()
 
         # Compute composite score using ONLY 0.5 threshold metrics (for consistency)
         # Weights configurable via config file or defaults
