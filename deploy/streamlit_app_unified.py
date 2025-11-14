@@ -11,8 +11,9 @@ from PIL import Image, ImageDraw, ImageFont
 
 import streamlit as st
 
-# Add parent directory to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
+# Add scripts directory to path for imports
+# Current structure: application/streamlit_app_unified.py and application/scripts/models/
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'scripts'))
 
 
 # --- Model Loading Functions ---
@@ -244,11 +245,47 @@ st.markdown("Upload a foot image to detect diabetic foot ulcers")
 
 st.sidebar.header("⚙️ Model & Settings")
 
-model_path = st.sidebar.text_input(
-    "Model path",
-    value="",
-    placeholder="Enter path to .pt or .pth file"
+# Model selection method
+model_input_method = st.sidebar.radio(
+    "Select model input method:",
+    ["Browse for file", "Enter path manually"],
+    index=0
 )
+
+if model_input_method == "Browse for file":
+    # File uploader for model selection
+    model_file = st.sidebar.file_uploader(
+        "Choose model file",
+        type=["pt", "pth"],
+    )
+
+    if model_file is not None:
+        # Save uploaded file temporarily
+        import tempfile
+        temp_dir = tempfile.gettempdir()
+        model_path = os.path.join(temp_dir, model_file.name)
+        with open(model_path, "wb") as f:
+            f.write(model_file.getbuffer())
+        st.sidebar.success(f"✓ Loaded: {model_file.name}")
+    else:
+        model_path = ""
+else:
+    # Manual path input
+    model_path = st.sidebar.text_input(
+        "Model path",
+        value="",
+        placeholder="checkpoints/faster_rcnn/best_model.pth"
+    )
+
+    # Quick select buttons for common models
+    st.sidebar.caption("Quick select:")
+    col1, col2 = st.sidebar.columns(2)
+    with col1:
+        if st.button("Faster R-CNN", use_container_width=True):
+            model_path = "checkpoints/faster_rcnn/best_model.pth"
+    with col2:
+        if st.button("YOLO", use_container_width=True):
+            model_path = "checkpoints/yolo/best.pt"
 
 # CPU option (recommended for Mac)
 run_on_cpu = st.sidebar.checkbox("Force CPU (recommended on Mac)", value=True)
@@ -397,7 +434,10 @@ if model_path and os.path.exists(model_path):
         else:  # pytorch
             device = 'cpu' if run_on_cpu else 'cuda'
             temp_model, model_name, train_img_size, backbone = load_pytorch_model(model_path, device)
-            total_params = sum(p.numel() for p in temp_model.parameters())
+
+            # Get the underlying PyTorch model to count parameters
+            pytorch_model = temp_model.get_model() if hasattr(temp_model, 'get_model') else temp_model
+            total_params = sum(p.numel() for p in pytorch_model.parameters())
 
             # st.sidebar.info(f"🤖 Model: {model_name}")
             st.sidebar.caption(f"Backbone: {backbone}")
