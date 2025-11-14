@@ -422,6 +422,10 @@ def get_train_transforms(img_size: int = 640) -> A.Compose:
             p=0.05  # Only 5% of images (reduced from 20%)
         ),
 
+        # Must resize and pad AFTER crop to ensure all images are same size
+        A.LongestMaxSize(max_size=img_size),
+        A.PadIfNeeded(min_height=img_size, min_width=img_size, border_mode=0),
+
         ToTensorV2()
     ], bbox_params=A.BboxParams(
         format='pascal_voc',
