@@ -570,6 +570,7 @@ def train_model(
             log_print(f"  Previous epoch: {checkpoint.get('epoch', 'unknown')}")
             log_print(f"  Previous train loss: {checkpoint.get('train_loss', 'unknown'):.4f}" if 'train_loss' in checkpoint else "")
             log_print(f"  Previous val loss: {checkpoint.get('val_loss', 'unknown'):.4f}" if 'val_loss' in checkpoint else "")
+            log_print(f"  Confidence threshold: {checkpoint.get('confidence_threshold', 0.5)}" if 'confidence_threshold' in checkpoint else "")
             log_print(f"  Previous composite score: {best_composite_from_checkpoint:.4f}")
             log_print(f"  Previous F1: {best_f1_from_checkpoint:.4f}")
             log_print(f"  Previous IoU: {best_iou_from_checkpoint:.4f}")
@@ -660,10 +661,8 @@ def train_model(
         # Train
         train_loss = train_one_epoch(model, optimizer, train_loader, device, epoch, scaler, max_grad_norm)
 
-        # Validate with metrics (compute F1/IoU every epoch)
-        # Use lower confidence threshold (0.05) to see model progress during training
-        # Final deployment would use higher threshold (0.5)
-        val_loss, val_metrics = validate(model, val_loader, device, compute_detection_metrics=True, confidence_threshold=0.05)
+        # Validate with metrics at 0.05 threshold (for monitoring early training progress)
+        val_loss, val_metrics_low = validate(model, val_loader, device, compute_detection_metrics=True, confidence_threshold=0.05)
 
         # Check for NaN values - immediate stop if detected
         if not (torch.isfinite(torch.tensor(train_loss)) and torch.isfinite(torch.tensor(val_loss))):
@@ -676,7 +675,11 @@ def train_model(
             log_print(f"{'='*60}")
             break
 
-        # Compute composite score (weighted combination of metrics)
+        # IMPORTANT: Validate again at 0.5 threshold for composite score calculation
+        # This ensures composite score is comparable across epochs (fixed threshold)
+        _, val_metrics = validate(model, val_loader, device, compute_detection_metrics=True, confidence_threshold=0.5)
+
+        # Compute composite score using ONLY 0.5 threshold metrics (for consistency)
         # Weights configurable via config file or defaults
         composite_score = (
             composite_weights['f1'] * val_metrics.get('f1_score', 0.0) +
@@ -685,7 +688,7 @@ def train_model(
             composite_weights['precision'] * val_metrics.get('precision', 0.0)
         )
 
-        # Record history
+        # Record history (using 0.5 threshold metrics for consistency)
         history["train_loss"].append(train_loss)
         history["val_loss"].append(val_loss)
         history["f1_score"].append(val_metrics.get('f1_score', 0.0))
@@ -695,7 +698,7 @@ def train_model(
         history["composite_score"].append(composite_score)
         history["learning_rate"].append(optimizer.param_groups[0]['lr'])
 
-        # Track best metrics
+        # Track best metrics (using 0.5 threshold for consistency)
         if val_metrics.get('f1_score', 0.0) > best_f1_score:
             best_f1_score = val_metrics['f1_score']
         if val_metrics.get('mean_iou', 0.0) > best_mean_iou:
@@ -708,22 +711,28 @@ def train_model(
         log_print(f"\nResults:")
         log_print(f"  Train Loss: {train_loss:.4f}")
         log_print(f"  Val Loss:   {val_loss:.4f}")
-        log_print(f"  F1 Score:   {val_metrics.get('f1_score', 0.0):.4f} (best: {best_f1_score:.4f})")
-        log_print(f"  Mean IoU:   {val_metrics.get('mean_iou', 0.0):.4f} (best: {best_mean_iou:.4f})")
-        log_print(f"  Precision:  {val_metrics.get('precision', 0.0):.4f} (best: {best_precision:.4f})")
-        log_print(f"  Recall:     {val_metrics.get('recall', 0.0):.4f} (best: {best_recall:.4f})")
-        log_print(f"  Composite:  {composite_score:.4f} (best: {best_composite_score:.4f})")
+        log_print(f"\n  Metrics @ conf=0.5 (used for composite score):")
+        log_print(f"    F1 Score:   {val_metrics.get('f1_score', 0.0):.4f} (best: {best_f1_score:.4f})")
+        log_print(f"    Mean IoU:   {val_metrics.get('mean_iou', 0.0):.4f} (best: {best_mean_iou:.4f})")
+        log_print(f"    Precision:  {val_metrics.get('precision', 0.0):.4f} (best: {best_precision:.4f})")
+        log_print(f"    Recall:     {val_metrics.get('recall', 0.0):.4f} (best: {best_recall:.4f})")
+        log_print(f"    Composite:  {composite_score:.4f} (best: {best_composite_score:.4f})")
+        log_print(f"\n  Metrics @ conf=0.05 (monitoring only):")
+        log_print(f"    F1 Score:   {val_metrics_low.get('f1_score', 0.0):.4f}")
+        log_print(f"    Precision:  {val_metrics_low.get('precision', 0.0):.4f}")
+        log_print(f"    Recall:     {val_metrics_low.get('recall', 0.0):.4f}")
 
         # Debug info: show predictions vs targets
-        total_preds = val_metrics.get('total_predictions', 0)
+        total_preds_low = val_metrics_low.get('total_predictions', 0)
+        total_preds_high = val_metrics.get('total_predictions', 0)
         total_targets = val_metrics.get('total_targets', 0)
         if total_targets > 0:
-            log_print(f"  Debug: {total_preds} predictions for {total_targets} ground truth boxes (conf>0.05)")
+            log_print(f"  Debug: {total_preds_high} preds @ conf>0.5, {total_preds_low} preds @ conf>0.05 (GT: {total_targets} boxes)")
 
         # Update learning rate based on validation loss (stability signal)
         lr_scheduler.step(val_loss)
 
-        # Save best model based on composite score
+        # Save best model based on composite score (calculated at 0.5 threshold)
         if composite_score > best_composite_score:
             best_composite_score = composite_score
             epochs_without_improvement = 0
@@ -736,12 +745,13 @@ def train_model(
                 "optimizer_state_dict": optimizer.state_dict(),
                 "train_loss": train_loss,
                 "val_loss": val_loss,
-                "f1_score": val_metrics.get('f1_score', 0.0),
-                "mean_iou": val_metrics.get('mean_iou', 0.0),
-                "precision": val_metrics.get('precision', 0.0),
-                "recall": val_metrics.get('recall', 0.0),
-                "composite_score": composite_score,
+                "f1_score": val_metrics.get('f1_score', 0.0),  # From 0.5 threshold
+                "mean_iou": val_metrics.get('mean_iou', 0.0),  # From 0.5 threshold
+                "precision": val_metrics.get('precision', 0.0),  # From 0.5 threshold
+                "recall": val_metrics.get('recall', 0.0),  # From 0.5 threshold
+                "composite_score": composite_score,  # Calculated from 0.5 threshold metrics
                 "composite_weights": composite_weights,  # Save weights used
+                "confidence_threshold": 0.5,  # Threshold used for composite score
                 "learning_rate": current_lr,  # Save LR at which best model was achieved
                 "backbone": backbone,
                 "img_size": img_size,
@@ -750,7 +760,7 @@ def train_model(
                 "model_config": model_config  # Save model configuration
             }, checkpoint_path)
             log_print(f"  ✓ New best model! Saved to {checkpoint_path}")
-            log_print(f"    Composite Score: {composite_score:.4f}")
+            log_print(f"    Composite Score: {composite_score:.4f} (@ conf=0.5)")
             log_print(f"    Learning Rate: {current_lr:.6f}")
             log_print(f"    Breakdown: F1={val_metrics.get('f1_score', 0.0):.4f}, IoU={val_metrics.get('mean_iou', 0.0):.4f}, Recall={val_metrics.get('recall', 0.0):.4f}, Precision={val_metrics.get('precision', 0.0):.4f}")
         else:
@@ -791,13 +801,14 @@ def train_model(
     log_print("\n" + "="*60)
     log_print("Training complete!")
     log_print("="*60)
-    log_print(f"\nBest Metrics Achieved:")
+    log_print(f"\nBest Metrics Achieved (@ confidence=0.5):")
     log_print(f"  Composite Score: {best_composite_score:.4f} (0.4*F1 + 0.25*IoU + 0.2*Recall + 0.15*Precision)")
     log_print(f"  F1 Score:        {best_f1_score:.4f}")
     log_print(f"  Mean IoU:        {best_mean_iou:.4f}")
     log_print(f"  Recall:          {best_recall:.4f}")
     log_print(f"  Precision:       {best_precision:.4f}")
     log_print(f"  Val Loss:        {best_val_loss:.4f} (used for LR scheduling only)")
+    log_print(f"\nNote: Composite score calculated using fixed confidence threshold (0.5) for consistency across epochs.")
     log_print(f"\nBest model saved to: {os.path.join(checkpoint_dir, 'best_model.pth')}")
     log_print(f"Training history saved to: {history_path}")
     log_print(f"Training log saved to: {log_file}")
