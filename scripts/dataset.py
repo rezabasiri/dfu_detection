@@ -413,40 +413,21 @@ def get_train_transforms(img_size: int = 640) -> A.Compose:
             p=0.05  # VERY LOW probability to avoid losing boxes
         ),
         
-        # OPTIONAL: Conservative crop augmentations (use with caution!)
-        # ONLY enable if training is stable and you want more variation
-        A.OneOf([
-            # Option 1: Ensures at least one box remains
-            A.AtLeastOneBBoxRandomCrop(
-                height=img_size * 0.50,
-                width=img_size * 0.50,
-                p=1.0
-            ),
-            
-            # Option 2: Ensures ALL boxes remain (safest)
-            A.BBoxSafeRandomCrop(
-                erosion_rate=0.1,
-                p=1.0
-            ),
-            
-            # Option 3: Random sized crop with all boxes (most aggressive)
-            A.RandomSizedBBoxSafeCrop(
-                height=img_size,
-                width=img_size,
-                erosion_rate=0.2,
-                p=1.0
-            ),
-        ], p=0.20),  # VERY LOW probability - only 20% of images
-
-        # Must add PadIfNeeded AFTER crops to ensure correct size
-        A.PadIfNeeded(min_height=img_size, min_width=img_size, border_mode=0),
+        # CROP AUGMENTATIONS - Conservative BBoxSafeRandomCrop only
+        # BBoxSafeRandomCrop is the safest option - ensures ALL boxes remain after crop
+        # Using very low probability (5%) and low erosion_rate (0.05) to minimize risk
+        # If NaN losses return, disable this by setting p=0.0
+        A.BBoxSafeRandomCrop(
+            erosion_rate=0.05,  # Very conservative - minimal cropping
+            p=0.05  # Only 5% of images (reduced from 20%)
+        )
 
         ToTensorV2()
     ], bbox_params=A.BboxParams(
         format='pascal_voc',
         label_fields=['labels'],
-        min_visibility=0.1,  # Keep boxes if at least 10% visible
-        min_area=50.0  # Reject boxes smaller than 50 pixels (reduced from 100)
+        min_visibility=0.3,  # Keep boxes if at least 30% visible (increased from 0.1 to prevent NaN)
+        min_area=100.0  # Reject boxes smaller than 100 pixels (increased from 50 for stability)
     ))
 
 def get_val_transforms(img_size: int = 640) -> A.Compose:
