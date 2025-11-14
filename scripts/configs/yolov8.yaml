@@ -25,6 +25,11 @@ training:
   warmup_epochs: 3
   close_mosaic: 10
 
+  # Loss weights (adjust importance of each component)
+  box_loss_weight: 7.5   # Box regression loss (localization accuracy)
+  cls_loss_weight: 1.0   # Classification loss (INCREASED from 0.5 for better class discrimination)
+  dfl_loss_weight: 1.5   # Distribution Focal Loss (box refinement)
+
   # Augmentation (YOLO built-in)
   hsv_h: 0.015
   hsv_s: 0.7
