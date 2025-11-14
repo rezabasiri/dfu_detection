@@ -27,7 +27,7 @@ model:
 
 training:
   img_size: 512
-  batch_size: 36  # 18 DFU + 18 healthy (balanced)
+  batch_size: 24  # Reduced from 36 to prevent OOM (12 DFU + 12 healthy with balanced sampling)
   num_epochs: 300
   learning_rate: 0.001
   weight_decay: 0.0001
