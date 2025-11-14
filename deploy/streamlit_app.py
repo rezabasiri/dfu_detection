@@ -59,11 +59,15 @@ run_on_cpu = st.sidebar.checkbox("Force CPU (recommended on Mac)", value=True)
 
 # Image size (IMPORTANT: Must match training!)
 img_size = st.sidebar.selectbox(
-    "Image size (must match model training)",
-    [640, 1024],
-    index=0,  # Default to 640 (for yolov8m)
-    help="Use 640 for yolov8m/s/n, 1024 for yolov8x optimized model"
+    "Image size",
+    [640, 1024, 1280, 1536],
+    index=1,  # Default to 1024 (best balance for high-res images)
+    help="Larger = better detail but slower. Use 1024 for most cases."
 )
+
+# Performance warning for large sizes
+if img_size >= 1280:
+    st.sidebar.warning(f"⏱️ {img_size}px may take 15-30+ sec on Mac CPU")
 
 # Confidence threshold
 conf_threshold = st.sidebar.slider("Confidence threshold", 0.0, 1.0, 0.3, 0.05)
@@ -219,9 +223,9 @@ if os.path.exists(model_path):
 
         # Recommendation based on model type
         if "medium" in model_type:
-            st.sidebar.warning("💡 Use img_size=640 for this model")
+            st.sidebar.info("💡 Trained @ 640px, but 1024px often works better for high-res images")
         elif "extra-large" in model_type:
-            st.sidebar.success("💡 Use img_size=1024 for best results")
+            st.sidebar.success("💡 Use img_size=1024+ for best results")
 
     except Exception as e:
         st.sidebar.error(f"Could not read model: {e}")
@@ -231,8 +235,8 @@ else:
 st.sidebar.markdown("---")
 st.sidebar.markdown("""
 **Quick Tips:**
-- yolov8m → Use 640px
-- yolov8x → Use 1024px
-- Lower confidence = more detections
-- Mac CPU: ~5-10 sec per image
+- **1024px**: Best default for high-res images
+- **1280/1536px**: Max detail (slower, 15-30+ sec)
+- **640px**: Fast but may miss small ulcers
+- Lower confidence → more detections
 """)
