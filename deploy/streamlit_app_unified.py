@@ -46,32 +46,22 @@ def load_pytorch_model(model_path: str, device='cpu'):
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Model not found: {model_path}")
 
-    # Load checkpoint
+    # Use the model factory to load from checkpoint (auto-detects model type)
+    from models import create_from_checkpoint
+
+    device_obj = torch.device(device)
+    detector = create_from_checkpoint(model_path, device=device_obj)
+
+    # Ensure model is in eval mode
+    detector.set_eval_mode()
+
+    # Extract metadata from checkpoint for display
     checkpoint = torch.load(model_path, map_location=device)
-
-    # Get model configuration
     model_name = checkpoint.get('model_name', 'faster_rcnn')
-    backbone = checkpoint.get('backbone', 'efficientnet_b5')
     img_size = checkpoint.get('img_size', 512)
-    num_classes = checkpoint.get('num_classes', 2)
+    backbone = detector.backbone_name if hasattr(detector, 'backbone_name') else checkpoint.get('backbone', 'unknown')
 
-    # Import model creation functions
-    if model_name == 'faster_rcnn':
-        from train_efficientdet import create_model
-        model = create_model(backbone=backbone, num_classes=num_classes, img_size=img_size)
-    elif model_name == 'retinanet':
-        from models.retinanet import create_retinanet_model
-        model_config = checkpoint.get('model_config', {})
-        model = create_retinanet_model(model_config)
-    else:
-        raise ValueError(f"Unknown model type: {model_name}")
-
-    # Load weights
-    model.load_state_dict(checkpoint['model_state_dict'])
-    model.to(device)
-    model.eval()
-
-    return model, model_name, img_size, backbone
+    return detector, model_name, img_size, backbone
 
 
 def detect_model_type(model_path: str):
@@ -115,9 +105,18 @@ def run_yolo_inference(model, image_np, img_size, conf_threshold, device):
     return detections
 
 
-def run_pytorch_inference(model, image, img_size, conf_threshold, device):
+def run_pytorch_inference(detector, image, img_size, conf_threshold, device):
     """Run Faster R-CNN or RetinaNet inference"""
     import torchvision.transforms as T
+
+    # Get the underlying PyTorch model from the detector wrapper
+    if hasattr(detector, 'get_model'):
+        model = detector.get_model()
+    else:
+        model = detector  # Already an nn.Module
+
+    # Ensure model is in eval mode
+    model.eval()
 
     # Prepare image
     transform = T.Compose([
@@ -125,11 +124,11 @@ def run_pytorch_inference(model, image, img_size, conf_threshold, device):
         T.ToTensor(),
     ])
 
-    image_tensor = transform(image).unsqueeze(0).to(device)
+    image_tensor = transform(image).to(device)
 
-    # Run inference
+    # Run inference (model expects list of tensors)
     with torch.no_grad():
-        predictions = model(image_tensor)
+        predictions = model([image_tensor])
 
     # Parse predictions
     pred = predictions[0]
