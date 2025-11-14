@@ -306,15 +306,16 @@ if st.button("🔍 Find DFUs", type="primary"):
                     if yolo_training_size is not None:
                         training_img_size = yolo_training_size
                         if img_size != yolo_training_size:
-                            st.info(f"🤖 YOLO trained @ {yolo_training_size}px, but using {img_size}px (user override)")
+                            st.info(f"🤖 trained @ {yolo_training_size}px, but using {img_size}px (user override)")
                         else:
                             st.info(f"🤖 Using YOLO training size: {yolo_training_size}px")
                     else:
                         training_img_size = img_size
-                        st.info(f"🤖 YOLO model (training size unknown), using {img_size}px")
+                        st.info(f"🤖 model (training size unknown), using {img_size}px")
                 else:  # pytorch (Faster R-CNN or RetinaNet)
                     model, model_name, training_img_size, backbone = load_pytorch_model(model_path, device)
-                    st.info(f"🤖 Detected: {model_name} ({backbone}) @ {training_img_size}px")
+                    # st.info(f"🤖 Detected: {model_name} ({backbone}) @ {training_img_size}px")
+                    st.info(f"🤖 Detected: ({backbone}) @ {training_img_size}px")
                     img_size = training_img_size  # Override with checkpoint value
 
             except Exception as e:
@@ -389,7 +390,7 @@ if model_path and os.path.exists(model_path):
             else:
                 variant = "yolov8x (extra-large)"
 
-            st.sidebar.info(f"🤖 Model: YOLO - {variant}")
+            # st.sidebar.info(f"🤖 Model: YOLO - {variant}")
             st.sidebar.caption(f"Parameters: {total_params:,}")
             if yolo_train_size is not None:
                 st.sidebar.caption(f"Training size: {yolo_train_size}px")
@@ -416,4 +417,5 @@ st.sidebar.markdown("""
 - For Mac: Always use CPU mode
 
 """)
+
 
