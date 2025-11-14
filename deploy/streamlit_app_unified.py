@@ -1,6 +1,5 @@
 """
-DFU Detection - Unified Streamlit Demo
-Supports: YOLO, Faster R-CNN, RetinaNet
+DFU Detection - Demo
 Optimized for Mac (CPU inference)
 """
 
@@ -241,17 +240,10 @@ def draw_detections(image, detections):
 
 
 # --- Streamlit UI ---
-st.title("🩺 DFU Detection – Unified Demo")
+st.title("🩺 DFU Detection – Demo")
 st.markdown("Upload a foot image to detect diabetic foot ulcers")
-st.markdown("**Supports:** YOLO (.pt), Faster R-CNN (.pth), RetinaNet (.pth)")
 
 st.sidebar.header("⚙️ Model & Settings")
-
-# Model path input with examples
-st.sidebar.markdown("**Model Examples:**")
-st.sidebar.code("/path/to/yolo/best.pt", language="")
-st.sidebar.code("/path/to/checkpoints/faster_rcnn/best_model.pth", language="")
-st.sidebar.code("/path/to/checkpoints/retinanet/best_model.pth", language="")
 
 model_path = st.sidebar.text_input(
     "Model path",
@@ -264,10 +256,10 @@ run_on_cpu = st.sidebar.checkbox("Force CPU (recommended on Mac)", value=True)
 
 # Image size - auto-detected from model training config
 img_size = st.sidebar.selectbox(
-    "Image size (for YOLO inference)",
+    "Image size (for inference)",
     [512, 640, 1024, 1280, 1536],
     index=2,  # Default to 1024
-    help="YOLO: Can override training size. PyTorch models: Auto-set from checkpoint (this setting ignored)."
+    help="PyTorch models: Auto-set from checkpoint (this setting ignored)."
 )
 
 # Performance warning for large sizes
@@ -407,7 +399,7 @@ if model_path and os.path.exists(model_path):
             temp_model, model_name, train_img_size, backbone = load_pytorch_model(model_path, device)
             total_params = sum(p.numel() for p in temp_model.parameters())
 
-            st.sidebar.info(f"🤖 Model: {model_name}")
+            # st.sidebar.info(f"🤖 Model: {model_name}")
             st.sidebar.caption(f"Backbone: {backbone}")
             st.sidebar.caption(f"Training size: {train_img_size}px")
             st.sidebar.caption(f"Parameters: {total_params:,}")
@@ -420,14 +412,8 @@ else:
 st.sidebar.markdown("---")
 st.sidebar.markdown("""
 **Quick Tips:**
-- **Image Size**: Auto-detected from model training
-- **YOLO**: Can override size for high-res images
-- **PyTorch models**: Use training size (auto-set)
 - Lower confidence → more detections
 - For Mac: Always use CPU mode
 
-**Model Comparison:**
-- **YOLO**: Fast, good accuracy
-- **Faster R-CNN**: High accuracy, slower
-- **RetinaNet**: Balanced speed/accuracy
 """)
+
