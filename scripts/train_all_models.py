@@ -16,8 +16,8 @@ from pathlib import Path
 MODELS = [
     {
         'name': 'faster_rcnn',
-        'config': 'configs/faster_rcnn_b5.yaml',
-        'description': 'Faster R-CNN with EfficientNet-B5 (current production model)'
+        'config': 'configs/faster_rcnn_b3.yaml',
+        'description': 'Faster R-CNN with EfficientNet-B3 (current production model)'
     },
     {
         'name': 'retinanet',
@@ -380,3 +380,4 @@ Usage examples:
 
 if __name__ == "__main__":
     main()
+
