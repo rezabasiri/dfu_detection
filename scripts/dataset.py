@@ -413,25 +413,17 @@ def get_train_transforms(img_size: int = 640) -> A.Compose:
             p=0.05  # VERY LOW probability to avoid losing boxes
         ),
         
-        # CROP AUGMENTATIONS - Conservative BBoxSafeRandomCrop only
-        # BBoxSafeRandomCrop is the safest option - ensures ALL boxes remain after crop
-        # Using very low probability (5%) and low erosion_rate (0.05) to minimize risk
-        # If NaN losses return, disable this by setting p=0.0
-        A.BBoxSafeRandomCrop(
-            erosion_rate=0.05,  # Very conservative - minimal cropping
-            p=0.05  # Only 5% of images (reduced from 20%)
-        ),
-
-        # Must resize and pad AFTER crop to ensure all images are same size
-        A.LongestMaxSize(max_size=img_size),
-        A.PadIfNeeded(min_height=img_size, min_width=img_size, border_mode=0),
+        # CROP AUGMENTATIONS FULLY DISABLED
+        # Any form of cropping causes NaN losses by removing/shrinking bounding boxes
+        # Even BBoxSafeRandomCrop at low probability causes issues
+        # Keeping ONLY non-crop augmentations for training diversity
 
         ToTensorV2()
     ], bbox_params=A.BboxParams(
         format='pascal_voc',
         label_fields=['labels'],
-        min_visibility=0.3,  # Keep boxes if at least 30% visible (increased from 0.1 to prevent NaN)
-        min_area=100.0  # Reject boxes smaller than 100 pixels (increased from 50 for stability)
+        min_visibility=0.1,  # Keep boxes if at least 10% visible (original value)
+        min_area=50.0  # Reject boxes smaller than 50 pixels (original value)
     ))
 
 def get_val_transforms(img_size: int = 640) -> A.Compose:
