@@ -19,12 +19,25 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 # --- Model Loading Functions ---
 @st.cache_resource
 def load_yolo_model(model_path: str):
-    """Load YOLO model with caching"""
+    """Load YOLO model with caching and extract training config"""
     from ultralytics import YOLO
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Model not found: {model_path}")
     model = YOLO(model_path)
-    return model, "yolo"
+
+    # Try to extract training image size from model metadata
+    training_img_size = None
+    try:
+        # YOLO stores training args in model.ckpt['train_args']
+        if hasattr(model, 'ckpt') and model.ckpt is not None:
+            train_args = model.ckpt.get('train_args', {})
+            training_img_size = train_args.get('imgsz', None)
+            if isinstance(training_img_size, (list, tuple)):
+                training_img_size = training_img_size[0]  # Take first value if list
+    except:
+        pass
+
+    return model, "yolo", training_img_size
 
 
 @st.cache_resource
@@ -249,12 +262,12 @@ model_path = st.sidebar.text_input(
 # CPU option (recommended for Mac)
 run_on_cpu = st.sidebar.checkbox("Force CPU (recommended on Mac)", value=True)
 
-# Image size - will be auto-detected for PyTorch models
+# Image size - auto-detected from model training config
 img_size = st.sidebar.selectbox(
-    "Image size",
+    "Image size (for YOLO inference)",
     [512, 640, 1024, 1280, 1536],
     index=2,  # Default to 1024
-    help="YOLO: Choose inference size. PyTorch: Auto-detected from checkpoint."
+    help="YOLO: Can override training size. PyTorch models: Auto-set from checkpoint (this setting ignored)."
 )
 
 # Performance warning for large sizes
@@ -294,9 +307,19 @@ if st.button("🔍 Find DFUs", type="primary"):
                 device = 'cpu' if run_on_cpu else 'cuda'
 
                 if model_type == 'yolo':
-                    model, _ = load_yolo_model(model_path)
+                    model, model_name, yolo_training_size = load_yolo_model(model_path)
                     model_name = "YOLO"
-                    training_img_size = img_size  # User-specified
+
+                    # Use training size if available, otherwise user-specified
+                    if yolo_training_size is not None:
+                        training_img_size = yolo_training_size
+                        if img_size != yolo_training_size:
+                            st.info(f"🤖 YOLO trained @ {yolo_training_size}px, but using {img_size}px (user override)")
+                        else:
+                            st.info(f"🤖 Using YOLO training size: {yolo_training_size}px")
+                    else:
+                        training_img_size = img_size
+                        st.info(f"🤖 YOLO model (training size unknown), using {img_size}px")
                 else:  # pytorch (Faster R-CNN or RetinaNet)
                     model, model_name, training_img_size, backbone = load_pytorch_model(model_path, device)
                     st.info(f"🤖 Detected: {model_name} ({backbone}) @ {training_img_size}px")
@@ -360,7 +383,7 @@ if model_path and os.path.exists(model_path):
         model_type = detect_model_type(model_path)
 
         if model_type == 'yolo':
-            temp_model, _ = load_yolo_model(model_path)
+            temp_model, _, yolo_train_size = load_yolo_model(model_path)
             total_params = sum(p.numel() for p in temp_model.model.parameters())
 
             if total_params < 5_000_000:
@@ -376,6 +399,8 @@ if model_path and os.path.exists(model_path):
 
             st.sidebar.info(f"🤖 Model: YOLO - {variant}")
             st.sidebar.caption(f"Parameters: {total_params:,}")
+            if yolo_train_size is not None:
+                st.sidebar.caption(f"Training size: {yolo_train_size}px")
 
         else:  # pytorch
             device = 'cpu' if run_on_cpu else 'cuda'
@@ -395,9 +420,14 @@ else:
 st.sidebar.markdown("---")
 st.sidebar.markdown("""
 **Quick Tips:**
-- **YOLO**: Fast inference, good accuracy
-- **Faster R-CNN**: High accuracy, slower
-- **RetinaNet**: Balanced speed/accuracy
+- **Image Size**: Auto-detected from model training
+- **YOLO**: Can override size for high-res images
+- **PyTorch models**: Use training size (auto-set)
 - Lower confidence → more detections
 - For Mac: Always use CPU mode
+
+**Model Comparison:**
+- **YOLO**: Fast, good accuracy
+- **Faster R-CNN**: High accuracy, slower
+- **RetinaNet**: Balanced speed/accuracy
 """)
