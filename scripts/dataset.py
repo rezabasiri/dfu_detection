@@ -420,7 +420,7 @@ def get_train_transforms(img_size: int = 640) -> A.Compose:
         A.BBoxSafeRandomCrop(
             erosion_rate=0.05,  # Very conservative - minimal cropping
             p=0.05  # Only 5% of images (reduced from 20%)
-        )
+        ),
 
         ToTensorV2()
     ], bbox_params=A.BboxParams(
