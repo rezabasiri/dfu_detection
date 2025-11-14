@@ -351,7 +351,7 @@ if st.button("🔍 Find DFUs", type="primary"):
 
             # Show results
             st.success(f"✅ Detected {len(detections)} DFU(s)")
-            st.image(drawn, caption=f"Detected by {model_name}", use_container_width=True)
+            # st.image(drawn, caption=f"Detected by {model_name}", use_container_width=True)
 
             # Show detection details table
             st.markdown("### 📊 Detection Details")
@@ -417,5 +417,6 @@ st.sidebar.markdown("""
 - For Mac: Always use CPU mode
 
 """)
+
 
 
