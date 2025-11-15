@@ -542,18 +542,18 @@ else:
 conf_threshold = st.sidebar.slider("Confidence Threshold", 0.0, 1.0, 0.3, 0.05)
 
 # Main content
+# Image upload
+uploaded_image = st.file_uploader("📷 Upload Foot Image", type=["jpg", "jpeg", "png"])
+
+# Create two columns for side-by-side display
 col1, col2 = st.columns([1, 1])
 
-with col1:
-    uploaded_image = st.file_uploader("📷 Upload Foot Image", type=["jpg", "jpeg", "png"])
+# Display uploaded image in preview
+if uploaded_image:
+    image = Image.open(uploaded_image).convert("RGB")
 
-    if uploaded_image:
-        image = Image.open(uploaded_image).convert("RGB")
-        st.image(image, caption="Uploaded Image", use_container_width=True)
-
-with col2:
-    st.markdown("### Detection Results")
-    result_placeholder = st.empty()
+    with col1:
+        st.image(image, caption="Original Image", use_container_width=True)
 
 # Detection button
 if st.button("🔍 Find DFUs", type="primary", use_container_width=True):
@@ -592,14 +592,15 @@ if st.button("🔍 Find DFUs", type="primary", use_container_width=True):
                     # Draw results
                     drawn, detections_info = draw_detections(image, detections)
 
-                    # Display winning combination
+                    # Display result image in col2 (aligned with original in col1)
+                    with col2:
+                        st.image(drawn, caption=f"Detection Results", use_container_width=True)
+
+                    # Display winning combination info below images
                     st.success(
                         f"✅ Best Result: **{best_result['model_name']}** @ **{best_result['img_size']}px** "
                         f"({best_result['num_detections']} DFU(s), Avg Conf: {best_result['avg_confidence']:.1%})"
                     )
-
-                    with col2:
-                        st.image(drawn, caption=f"Detected by {best_result['model_name']}", use_container_width=True)
 
                     # Detection details
                     st.markdown("### 📊 Detection Details")
@@ -634,11 +635,12 @@ if st.button("🔍 Find DFUs", type="primary", use_container_width=True):
                         # Draw results
                         drawn, detections_info = draw_detections(image, detections)
 
-                        # Display results
-                        st.success(f"✅ Detected {len(detections)} DFU(s)")
-
+                        # Display result image in col2 (aligned with original in col1)
                         with col2:
-                            st.image(drawn, caption=f"Model {selected_model_idx + 1} @ {manual_img_size}px", use_container_width=True)
+                            st.image(drawn, caption=f"Detection Results", use_container_width=True)
+
+                        # Display success message below images
+                        st.success(f"✅ Detected {len(detections)} DFU(s) using Model {selected_model_idx + 1} @ {manual_img_size}px")
 
                         # Detection details
                         st.markdown("### 📊 Detection Details")
