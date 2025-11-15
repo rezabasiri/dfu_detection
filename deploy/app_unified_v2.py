@@ -30,8 +30,9 @@ if MANUAL_SCRIPTS_PATH is not None:
 
 # Add auto-detected paths
 possible_paths.extend([
-    os.path.join(current_dir, '..', 'scripts'),  # dfu_detection/deploy -> dfu_detection/scripts
-    os.path.join(current_dir, '..', '..', 'dfu_detection', 'scripts'),  # OwnHealth/application -> dfu_detection/scripts
+    os.path.join(current_dir, 'scripts'),  # Current directory's scripts folder (e.g., OwnHealth/application/scripts)
+    os.path.join(current_dir, '..', 'scripts'),  # Parent directory (e.g., dfu_detection/deploy -> dfu_detection/scripts)
+    os.path.join(current_dir, '..', '..', 'dfu_detection', 'scripts'),  # Two levels up
     os.path.join(current_dir, '..', '..', 'PhDUofT', 'SideProjects', 'DFU_Detection_Asem', 'scripts'),  # Other possible location
 ])
 
