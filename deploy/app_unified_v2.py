@@ -363,105 +363,19 @@ detection_mode = st.sidebar.radio(
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("Load Models (up to 5)")
-
-# Default directory for model browsing
-# Quick directory presets
-preset_dirs = {
-    "Home": os.path.expanduser("~/"),
-    "Current": os.getcwd(),
-    "Checkpoints (B5)": os.path.join(os.getcwd(), "../checkpoints_b5"),
-    "Checkpoints (YOLO)": os.path.join(os.getcwd(), "../checkpoints_yolo"),
-}
-
-# Initialize session state for directory if not exists
-if 'model_directory' not in st.session_state:
-    st.session_state.model_directory = os.path.expanduser("~/")
-
-# Directory preset buttons
-st.sidebar.markdown("**Quick Directory Select:**")
-cols = st.sidebar.columns(len(preset_dirs))
-for idx, (name, path) in enumerate(preset_dirs.items()):
-    with cols[idx]:
-        if st.button(name, key=f"preset_{name}", use_container_width=True):
-            st.session_state.model_directory = os.path.abspath(path)
-
-# Directory input and recursive toggle
-col_dir, col_recursive = st.sidebar.columns([3, 1])
-with col_dir:
-    default_model_dir = st.text_input(
-        "📁 Model Directory (for browsing)",
-        value=st.session_state.model_directory,
-        help="Browse models from this directory",
-        label_visibility="visible",
-        key="model_dir_input"
-    )
-    # Update session state
-    st.session_state.model_directory = default_model_dir
-
-with col_recursive:
-    st.write("")  # Spacing
-    st.write("")  # Spacing
-    recursive_search = st.checkbox(
-        "📂",
-        value=False,
-        help="Search subdirectories recursively"
-    )
-
-# Get list of model files in the directory
-available_models = []
-if os.path.isdir(default_model_dir):
-    try:
-        if recursive_search:
-            # Recursive search
-            for root, dirs, files in os.walk(default_model_dir):
-                for file in sorted(files):
-                    if file.endswith(('.pt', '.pth')):
-                        # Show relative path from base directory
-                        rel_path = os.path.relpath(os.path.join(root, file), default_model_dir)
-                        available_models.append(rel_path)
-        else:
-            # Only current directory
-            for file in sorted(os.listdir(default_model_dir)):
-                if file.endswith(('.pt', '.pth')):
-                    available_models.append(file)
-    except Exception:
-        pass
-
-st.sidebar.markdown("---")
+st.sidebar.markdown("**Model 1 is required**, Models 2-5 are optional")
 
 # Model slots
 loaded_models = []
 model_paths = []
 
 for i in range(5):
-    with st.sidebar.expander(f"Model {i+1}", expanded=(i==0)):
+    with st.sidebar.expander(f"Model {i+1} {'(Required)' if i == 0 else '(Optional)'}", expanded=(i==0)):
 
-        # File browser dropdown
-        if available_models:
-            model_options = ["(Select from directory)"] + available_models
-            selected_file = st.selectbox(
-                "🗂️ Browse Files",
-                options=model_options,
-                key=f"model_browser_{i}",
-                help=f"Select a model from {default_model_dir}"
-            )
-
-            # Auto-fill path if file selected
-            if selected_file != "(Select from directory)":
-                auto_path = os.path.join(default_model_dir, selected_file)
-            else:
-                auto_path = ""
-        else:
-            auto_path = ""
-            if os.path.isdir(default_model_dir):
-                st.caption(f"⚠️ No .pt or .pth files in directory")
-            else:
-                st.caption(f"⚠️ Invalid directory")
-
-        # Manual path input
+        # Simple path input
         model_path = st.text_input(
-            "📝 Or enter path manually",
-            value=auto_path,
+            "Model path",
+            value="",
             key=f"model_path_{i}",
             placeholder="/path/to/model.pt or .pth"
         )
