@@ -13,21 +13,50 @@ from PIL import Image, ImageDraw, ImageFont
 import streamlit as st
 from typing import List, Dict, Tuple, Optional
 
-# Add parent directory to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
+# ==================== CONFIGURATION ====================
+# If auto-detection fails, set the full path to your DFU detection scripts directory here:
+MANUAL_SCRIPTS_PATH = None  # Example: "/Users/rezabasiri/dfu_detection/scripts"
+# =======================================================
+
+# Add parent directory to path for imports - try multiple possible locations
+current_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Possible locations for the scripts/models directory
+possible_paths = []
+
+# Add manual path first if specified
+if MANUAL_SCRIPTS_PATH is not None:
+    possible_paths.append(MANUAL_SCRIPTS_PATH)
+
+# Add auto-detected paths
+possible_paths.extend([
+    os.path.join(current_dir, '..', 'scripts'),  # dfu_detection/deploy -> dfu_detection/scripts
+    os.path.join(current_dir, '..', '..', 'dfu_detection', 'scripts'),  # OwnHealth/application -> dfu_detection/scripts
+    os.path.join(current_dir, '..', '..', 'PhDUofT', 'SideProjects', 'DFU_Detection_Asem', 'scripts'),  # Other possible location
+])
+
+# Add first valid path to sys.path
+scripts_path_found = None
+for path in possible_paths:
+    abs_path = os.path.abspath(path)
+    models_dir = os.path.join(abs_path, 'models')
+    if os.path.isdir(models_dir):
+        sys.path.insert(0, abs_path)
+        scripts_path_found = abs_path
+        break
 
 # Import model factory at module level
 try:
     from models import create_from_checkpoint
 except ImportError as e:
-    # Fallback: try direct import
-    import importlib.util
-    models_path = os.path.join(os.path.dirname(__file__), '..', 'scripts', 'models')
-    if os.path.isdir(models_path):
-        sys.path.insert(0, models_path)
-        from models import create_from_checkpoint
-    else:
-        raise ImportError(f"Cannot find models module. Checked: {models_path}") from e
+    error_msg = f"Cannot find models module.\nSearched in:\n"
+    for path in possible_paths:
+        abs_path = os.path.abspath(path)
+        error_msg += f"  - {abs_path} (exists: {os.path.isdir(abs_path)})\n"
+    if scripts_path_found:
+        error_msg += f"\nFound scripts at: {scripts_path_found}\n"
+        error_msg += f"But models import still failed. Check if models/__init__.py exists.\n"
+    raise ImportError(error_msg) from e
 
 
 # ==================== MODEL LOADING ====================
