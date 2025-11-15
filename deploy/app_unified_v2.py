@@ -16,6 +16,19 @@ from typing import List, Dict, Tuple, Optional
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 
+# Import model factory at module level
+try:
+    from models import create_from_checkpoint
+except ImportError as e:
+    # Fallback: try direct import
+    import importlib.util
+    models_path = os.path.join(os.path.dirname(__file__), '..', 'scripts', 'models')
+    if os.path.isdir(models_path):
+        sys.path.insert(0, models_path)
+        from models import create_from_checkpoint
+    else:
+        raise ImportError(f"Cannot find models module. Checked: {models_path}") from e
+
 
 # ==================== MODEL LOADING ====================
 @st.cache_resource
@@ -45,8 +58,6 @@ def load_pytorch_model(model_path: str, device='cpu'):
     """Load Faster R-CNN or RetinaNet model from .pth checkpoint"""
     if not os.path.exists(model_path):
         raise FileNotFoundError(f"Model not found: {model_path}")
-
-    from models import create_from_checkpoint
 
     device_obj = torch.device(device)
     detector = create_from_checkpoint(model_path, device=device_obj)
