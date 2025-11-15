@@ -6,6 +6,7 @@ Designed by Reza Basiri (90reza@gmail.com)
 
 import os
 import sys
+import tempfile
 import numpy as np
 import torch
 from PIL import Image, ImageDraw, ImageFont
@@ -372,13 +373,34 @@ model_paths = []
 for i in range(5):
     with st.sidebar.expander(f"Model {i+1} {'(Required)' if i == 0 else '(Optional)'}", expanded=(i==0)):
 
-        # Simple path input
-        model_path = st.text_input(
-            "Model path",
+        # Manual path input
+        manual_path = st.text_input(
+            "📝 Enter path manually",
             value="",
             key=f"model_path_{i}",
             placeholder="/path/to/model.pt or .pth"
         )
+
+        # File uploader
+        uploaded_file = st.file_uploader(
+            "📂 Or browse and select file",
+            type=["pt", "pth"],
+            key=f"model_upload_{i}",
+            label_visibility="visible"
+        )
+
+        # Determine which path to use
+        model_path = None
+        if manual_path and os.path.exists(manual_path):
+            model_path = manual_path
+        elif uploaded_file is not None:
+            # Save uploaded file to temp location
+            temp_dir = tempfile.gettempdir()
+            temp_path = os.path.join(temp_dir, uploaded_file.name)
+            with open(temp_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+            model_path = temp_path
+            st.caption(f"✓ Uploaded: {uploaded_file.name}")
 
         if model_path and os.path.exists(model_path):
             model_paths.append(model_path)
@@ -410,10 +432,11 @@ for i in range(5):
             except Exception as e:
                 st.error(f"Failed to load: {e}")
                 loaded_models.append(None)
-        elif model_path:
+        elif manual_path and not os.path.exists(manual_path):
             st.warning("⚠️ File not found")
             loaded_models.append(None)
         else:
+            # No path provided (optional for models 2-5)
             loaded_models.append(None)
 
 # Pad loaded_models to always have 5 entries
