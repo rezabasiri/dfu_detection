@@ -539,7 +539,7 @@ else:
     )
 
 # Confidence threshold
-conf_threshold = st.sidebar.slider("Confidence Threshold", 0.0, 1.0, 0.3, 0.05)
+conf_threshold = st.sidebar.slider("Confidence Threshold", 0.0, 1.0, 0.7, 0.05)
 
 # Main content
 # Image upload
@@ -673,3 +673,4 @@ st.sidebar.markdown("""
 """)
 
 st.sidebar.caption("Demo only - Designed by Reza Basiri (90reza@gmail.com)")
+
